@@ -1,0 +1,32 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.routers.extraction import router as extraction_router
+from app.models.database import init_db
+from app.routers.documents import router as documents_router
+
+app = FastAPI(
+    title="VisioID API",
+    description="Service d'extraction et d'analyse de pièces d'identité",
+    version="1.0.0"
+)
+init_db()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(extraction_router)
+app.include_router(documents_router)
+
+@app.get("/")
+def root():
+    return {"message": "VisioID API is running ✅"}
+
+@app.get("/health")
+def health():
+    return {"status": "healthy", "version": "1.0.0"}
+
