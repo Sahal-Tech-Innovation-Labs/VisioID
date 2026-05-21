@@ -5,7 +5,7 @@ from app.models.database import init_db
 from app.routers.documents import router as documents_router
 
 app = FastAPI(
-    title="VisioID API",
+    title="CniScan API",
     description="Service d'extraction et d'analyse de pièces d'identité",
     version="1.0.0"
 )

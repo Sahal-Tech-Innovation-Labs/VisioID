@@ -21,9 +21,9 @@ export default function DashboardPage() {
   ];
 
   const typeData = [
-    { name: "Passeport", value: 132 },
-    { name: "Carte d'identité", value: 98 },
-    { name: "Permis de conduire", value: 17 },
+    { name: "Passeport", value: 0 },
+    { name: "Carte d'identité", value: 0 },
+    { name: "Permis de conduire", value: 0 },
   ];
 
   const evolutionData = [

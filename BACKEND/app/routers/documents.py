@@ -122,3 +122,73 @@ def get_document(doc_id: int):
         "success": True,
         "data": dict(row)
     }
+
+@router.delete("/{doc_id}")
+def delete_document(doc_id: int):
+   
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id FROM extractions WHERE id = ?", (doc_id,))
+    existing = cursor.fetchone()
+
+    if not existing:
+        conn.close()
+        raise HTTPException(
+            status_code=404,
+            detail="Document non trouvé."
+        )
+
+    cursor.execute("DELETE FROM extractions WHERE id = ?", (doc_id,))
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "message": "Document supprimé avec succès"
+    }
+
+@router.put("/{doc_id}")
+def update_document(doc_id: int, doc: DocumentSchema):
+    """
+    Met à jour un document existant
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Vérifie que le document existe
+    cursor.execute("SELECT id FROM extractions WHERE id = ?", (doc_id,))
+    existing = cursor.fetchone()
+
+    if not existing:
+        conn.close()
+        raise HTTPException(
+            status_code=404,
+            detail="Document non trouvé."
+        )
+
+    # Met à jour le document
+    cursor.execute("""
+        UPDATE extractions SET
+            nom = ?, prenom = ?, numero_doc = ?,
+            nationalite = ?, date_naissance = ?,
+            lieu_naissance = ?, sexe = ?,
+            profession = ?, date_delivrance = ?,
+            date_expiration = ?, motif_visite = ?
+        WHERE id = ?
+    """, (
+        doc.nom, doc.prenom, doc.numero_doc,
+        doc.nationalite, doc.date_naissance,
+        doc.lieu_naissance, doc.sexe,
+        doc.profession, doc.date_delivrance,
+        doc.date_expiration, doc.motif_visite,
+        doc_id
+    ))
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "message": "Document mis à jour avec succès"
+    }

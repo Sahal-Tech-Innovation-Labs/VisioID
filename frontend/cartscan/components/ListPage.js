@@ -2,13 +2,22 @@
 import { useState, useEffect } from "react";
 import { Search, Eye, Trash2, Plus, Download, BarChart3 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function ListPage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+
+    
+console.log("FormPage chargé");
+    const editData = sessionStorage.getItem("editDocument");
+    console.log("editData trouvé:", editData)
+
+
     const fetchDocuments = async () => {
       try {
         const response = await fetch("http://localhost:8000/documents/");
@@ -58,6 +67,25 @@ export default function ListPage() {
     link.click();
     document.body.removeChild(link);
   };
+
+  const handleDelete = async (id) => {
+    if (!confirm("Voulez-vous vraiment supprimer ce document ?")) return;
+
+    try {
+      const response = await fetch(`http://localhost:8000/documents/${id}`, {
+        method: "DELETE",
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setDocuments(documents.filter((doc) => doc.id !== id));
+      }
+    } catch (err) {
+      alert("Erreur lors de la suppression.");
+    }
+};
+
 
   return (
     <div className="min-h-screen p-8 bg-gray-50">
@@ -115,14 +143,29 @@ export default function ListPage() {
                   <td className="py-4 px-3 text-sm">{doc.date_enreg}</td>
                   <td className="py-4 px-3">
                     <div className="flex gap-2 justify-end">
-                      <Link href="/form">
-                        <button className="p-2 text-blue-900 hover:bg-blue-100 rounded-lg transition-colors">
-                          <Eye className="w-5 h-5" />
-                        </button>
-                      </Link>
-                      <button className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors">
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                     
+
+<button
+ onClick={() => {
+    console.log("Document à éditer:", doc);
+    sessionStorage.setItem("editDocument", JSON.stringify(doc));
+    console.log("SessionStorage après setItem:", sessionStorage.getItem("editDocument"));
+    setTimeout(() => {
+      router.push("/form");
+    }, 100);
+  }}
+  className="p-2 text-blue-900 hover:bg-blue-100 rounded-lg transition-colors"
+>
+  <Eye className="w-5 h-5" />
+</button>
+
+
+                      <button
+  onClick={() => handleDelete(doc.id)}
+  className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+>
+  <Trash2 className="w-5 h-5" />
+</button>
                     </div>
                   </td>
                 </tr>

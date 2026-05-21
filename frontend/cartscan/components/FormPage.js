@@ -21,10 +21,38 @@ export default function FormPage() {
     dateEnreg:     new Date().toISOString().slice(0, 16).replace("T", " "),
   });
 
-  useEffect(() => {
-    const data = sessionStorage.getItem("extractedData");
-    if (data) {
-      const parsed = JSON.parse(data);
+  const [motifVisite, setMotifVisite] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null);
+  const [editId, setEditId] = useState(null);
+
+useEffect(() => {
+    
+    const editData = sessionStorage.getItem("editDocument");
+    if (editData) {
+      const doc = JSON.parse(editData);
+      setEditId(doc.id);
+      setFormData((prev) => ({
+        ...prev,
+        nom:           doc.nom || "",
+        prenom:        doc.prenom || "",
+        numDoc:        doc.numero_doc || "",
+        nationalite:   doc.nationalite || "",
+        dateNaissance: doc.date_naissance || "",
+        lieuNaissance: doc.lieu_naissance || "",
+        sexe:          doc.sexe || "",
+        profession:    doc.profession || "",
+        dateExpire:    doc.date_expiration || "",
+        dateEnreg:     doc.date_enreg || "",
+      }));
+      sessionStorage.removeItem("editDocument");
+      return;
+    }
+
+    const extractData = sessionStorage.getItem("extractedData");
+    if (extractData) {
+      const parsed = JSON.parse(extractData);
       setFormData((prev) => ({
         ...prev,
         nom:           parsed.nom || "",
@@ -38,13 +66,9 @@ export default function FormPage() {
         dateExpire:    parsed.date_expiration || "",
       }));
     }
-  }, []);
+}, []);
 
-  const [motifVisite, setMotifVisite] = useState("");
-  const [isListening, setIsListening] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState(null);
-
+  
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -85,8 +109,14 @@ export default function FormPage() {
     setSaveStatus(null);
 
     try {
-      const response = await fetch("http://localhost:8000/documents/", {
-        method: "POST",
+      const url = editId
+        ? `http://localhost:8000/documents/${editId}`
+        : "http://localhost:8000/documents/";
+      
+      const method = editId ? "PUT" : "POST";
+
+      const response = await fetch(url, {
+        method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nom:             formData.nom,
@@ -124,7 +154,7 @@ export default function FormPage() {
       alert("Impossible de contacter le serveur.");
       setSaving(false);
     }
-  };
+};
 
   const fields = [
     { label: "NOM", name: "nom" },

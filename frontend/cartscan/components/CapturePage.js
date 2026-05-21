@@ -1,14 +1,14 @@
 "use client";
 import { useState } from "react";
-import { Camera, Loader } from "lucide-react";
+import { Camera, Loader , List } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function CapturePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
-
   const handleFileUpload = async (file) => {
     if (!["image/jpeg", "image/png"].includes(file.type)) {
       setError("Format non supporté. Utilisez une image JPEG ou PNG.");
@@ -67,12 +67,12 @@ export default function CapturePage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
+    <div className="min-h-screen flex items-center justify-center bg-white relative">
       <div className="flex flex-col items-center gap-8">
 
-        <h1 className="text-3xl font-semibold text-blue-900">VisioID</h1>
+        <h1 className="text-3xl font-semibold text-blue-900">CniScan</h1>
 
-        
+       
         <label
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -98,29 +98,38 @@ export default function CapturePage() {
           />
         </label>
 
-        
+       
         <p className="text-gray-400 text-sm">
           Glissez une image ici ou cliquez pour sélectionner
         </p>
 
-        
+     
         {error && (
           <div className="px-6 py-3 bg-red-100 text-red-700 rounded-lg text-center max-w-sm">
             {error}
           </div>
         )}
 
-        
-        <label className="px-16 py-5 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all text-2xl font-semibold cursor-pointer">
-          {loading ? "Extraction en cours..." : "Ajouter"}
-          <input
-            type="file"
-            accept="image/jpeg,image/png"
-            onChange={handleInputChange}
-            className="hidden"
-          />
-        </label>
+       
+        <div className="flex gap-4">
+         
+          <label className="px-16 py-5 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all text-2xl font-semibold cursor-pointer">
+            {loading ? "Extraction en cours..." : "Ajouter"}
+            <input
+              type="file"
+              accept="image/jpeg,image/png"
+              onChange={handleInputChange}
+              className="hidden"
+            />
+          </label>
 
+         
+        </div>
+        <Link href="/list">
+  <button className="px-10 py-3 border-2 border-blue-900 text-blue-900 hover:bg-blue-900 hover:text-white rounded-xl transition-all font-semibold">
+    Voir la liste
+  </button>
+</Link>
       </div>
     </div>
   );
