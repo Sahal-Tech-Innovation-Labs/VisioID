@@ -19,6 +19,7 @@ export default function FormPage() {
     profession:    "",
     dateExpire:    "",
     dateEnreg:     new Date().toISOString().slice(0, 16).replace("T", " "),
+    typeDoc:       "",
   });
 
   const [motifVisite, setMotifVisite] = useState("");
@@ -45,6 +46,7 @@ useEffect(() => {
         profession:    doc.profession || "",
         dateExpire:    doc.date_expiration || "",
         dateEnreg:     doc.date_enreg || "",
+        typeDoc: doc.type_doc || "",
       }));
       sessionStorage.removeItem("editDocument");
       return;
@@ -64,6 +66,7 @@ useEffect(() => {
         sexe:          parsed.sexe || "",
         profession:    parsed.profession || "",
         dateExpire:    parsed.date_expiration || "",
+        typeDoc: parsed.type_doc || "",
       }));
     }
 }, []);
@@ -167,11 +170,23 @@ useEffect(() => {
     { label: "Profession", name: "profession" },
     { label: "Date.Expire", name: "dateExpire" },
   ];
-
-  return (
+return (
     <div className="min-h-screen p-8 bg-gray-50">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-semibold text-blue-900">Extraction des données</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-3xl font-semibold text-blue-900">
+            Extraction des données
+          </h1>
+          {formData.typeDoc && (
+            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+              formData.typeDoc === "CNI"
+                ? "bg-blue-100 text-blue-900"
+                : "bg-green-100 text-green-700"
+            }`}>
+              {formData.typeDoc}
+            </span>
+          )}
+        </div>
         <Link
           href="/"
           className="flex items-center gap-2 px-4 py-2 text-blue-900 hover:bg-white rounded-lg transition-colors"

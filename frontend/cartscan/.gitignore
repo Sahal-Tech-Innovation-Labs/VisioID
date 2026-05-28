@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+Add-Content .gitignore "`nBACKEND/cartscan.db"
+Add-Content .gitignore "BACKEND/*.db"
+Add-Content .gitignore "BACKEND/venv/"
+Add-Content .gitignore "BACKEND/temp_images/"
+Add-Content .gitignore "__pycache__/"
+Add-Content .gitignore "*.pyc"
+Add-Content .gitignore "`n# SQLite database"
+Add-Content .gitignore "*.db"
+Add-Content .gitignore "BACKEND/temp_images/"
