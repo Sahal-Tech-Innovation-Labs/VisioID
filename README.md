@@ -119,6 +119,25 @@ npm install
 
 ---
 
+### Docker
+
+```bash
+# Depuis la racine du projet
+docker compose up --build
+```
+
+- Backend disponible sur `http://localhost:8000`
+- Frontend disponible sur `http://localhost:3000`
+
+Si vous utilisez une API Groq, exportez `GROQ_API_KEY` dans un fichier `.env` à la racine avant de lancer Docker.
+
+Example `.env`:
+```
+GROQ_API_KEY=your_groq_api_key_here
+```
+
+---
+
 ## Lancement
 
 ### Terminal 1 — Backend

@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+dist
+build
+.dockerignore
+.git
+.gitignore
+.env
+*.pyc
+__pycache__
+*.db
+temp_images
