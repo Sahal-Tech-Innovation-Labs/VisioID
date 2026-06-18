@@ -10,7 +10,7 @@ def get_connection():
     return conn
 
 def init_db():
-    """Crée la table extractions si elle n'existe pas"""
+    """Crée la table extractions si elle n'existe pas, et migre les BDD existantes"""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -28,9 +28,20 @@ def init_db():
             date_delivrance TEXT,
             date_expiration TEXT,
             motif_visite TEXT,
+            type_doc TEXT,
+            photo_profil TEXT,
+            heure_sortie TEXT,
             date_enreg TEXT DEFAULT (datetime('now', 'localtime'))
         )
     """)
+
+    # Migration : si la table existait déjà avant l'ajout de photo_profil / heure_sortie
+    cursor.execute("PRAGMA table_info(extractions)")
+    colonnes = [col[1] for col in cursor.fetchall()]
+    if "photo_profil" not in colonnes:
+        cursor.execute("ALTER TABLE extractions ADD COLUMN photo_profil TEXT")
+    if "heure_sortie" not in colonnes:
+        cursor.execute("ALTER TABLE extractions ADD COLUMN heure_sortie TEXT")
 
     conn.commit()
     conn.close()

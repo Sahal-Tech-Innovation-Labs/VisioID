@@ -3,21 +3,16 @@ import shutil
 from PIL import Image
 import os
 import pytesseract
+from groq import Groq
+from dotenv import load_dotenv
 
 from app.services.ocr_service import (
     TEMP_FOLDER,
-    extraire_avec_ia,
-    # detecter_type_doc,
-    # extraire_nationalite,
-    # extraire_champ,
-    # extraire_numero_piece,
-    # extraire_date_expiration,
-    # extraire_date_naissance,
-    # extraire_lieu_naissance,
-    # extraire_date_delivrance,
-    # extraire_sexe,
-    # extraire_prenom,
+    extraire_hybride,
 )
+
+load_dotenv()
+groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 router = APIRouter(
     prefix="/extract",
@@ -37,37 +32,76 @@ async def extract_document(file: UploadFile = File(...)):
     with open(temp_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    image = Image.open(temp_path)
-    texte_brut = pytesseract.image_to_string(image, lang="fra")
-    os.remove(temp_path)
+    try:
+        image = Image.open(temp_path)
+        texte_brut = pytesseract.image_to_string(image, lang="fra")
 
-    if not texte_brut.strip():
-        raise HTTPException(
-            status_code=422,
-            detail="Aucun texte trouvé sur ce document."
-        )
+        if not texte_brut.strip():
+            raise HTTPException(
+                status_code=422,
+                detail="Aucun texte trouvé sur ce document."
+            )
 
-    data = extraire_avec_ia(texte_brut)
+        # On garde l'image sur disque jusqu'ici pour pouvoir en extraire
+        # la photo de profil (détection de visage)
+        data = extraire_hybride(texte_brut, temp_path)
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
 
     return {
+        "texte_brut": texte_brut,
         "success": True,
         "data": data
     }
 
-    # return {
-    #     "success": True,
-    #     "texte_brut": texte_brut,
-    #     "data": {
-    #         "type_doc":        detecter_type_doc(texte_brut),
-    #         "numero_doc":      extraire_numero_piece(texte_brut),
-    #         "nom":             extraire_champ(texte_brut, ["Nom", "NOM"]),
-    #         "prenom":          extraire_prenom(texte_brut),
-    #         "nationalite":     extraire_nationalite(texte_brut),
-    #         "sexe":            extraire_sexe(texte_brut),
-    #         "profession":      extraire_champ(texte_brut, ["Profession", "PROFESSION"]),
-    #         "date_naissance":  extraire_date_naissance(texte_brut),
-    #         "lieu_naissance":  extraire_lieu_naissance(texte_brut),
-    #         "date_delivrance": extraire_date_delivrance(texte_brut),
-    #         "date_expiration": extraire_date_expiration(texte_brut),
-    #     }
-    # }
+
+@router.post("/transcribe")
+async def transcribe_audio(file: UploadFile = File(...)):
+    """
+    Transcrit un fichier audio (motif de visite dicté) en texte
+    via le modèle Whisper hébergé par Groq.
+    """
+    formats_acceptes = [
+        "audio/webm", "audio/wav", "audio/mp3", "audio/mpeg",
+        "audio/m4a", "audio/ogg", "audio/x-m4a",
+    ]
+    # Le navigateur ajoute parfois les codecs au content_type
+    # (ex: "audio/webm;codecs=opus") : on compare juste le type de base.
+    content_type_base = (file.content_type or "").split(";")[0].strip()
+    if content_type_base not in formats_acceptes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Format audio non supporté : {file.content_type}"
+        )
+
+    extension = file.filename.split(".")[-1] if "." in file.filename else "webm"
+    temp_path = f"{TEMP_FOLDER}/audio_{file.filename or f'enregistrement.{extension}'}"
+
+    with open(temp_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        with open(temp_path, "rb") as audio_file:
+            transcription = groq_client.audio.transcriptions.create(
+                file=audio_file,
+                model="whisper-large-v3-turbo",
+                language="fr",
+                response_format="text",
+            )
+
+        texte = transcription if isinstance(transcription, str) else transcription.text
+
+        return {
+            "success": True,
+            "texte": texte.strip()
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la transcription : {str(e)}"
+        )
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
