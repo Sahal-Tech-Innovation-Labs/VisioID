@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers.extraction import router as extraction_router
+from app.routers.auth import router as auth_router
 from app.models.database import init_db
 from app.routers.documents import router as documents_router
 
@@ -21,6 +22,8 @@ app.add_middleware(
 
 app.include_router(extraction_router)
 app.include_router(documents_router)
+app.include_router(auth_router) 
+
 
 @app.get("/")
 def root():

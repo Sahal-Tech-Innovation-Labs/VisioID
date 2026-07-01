@@ -215,6 +215,7 @@ export default function FormPage() {
           type_doc:        formData.typeDoc || "",
           photo_profil:    formData.photoProfil || null,
           date_enreg:      formData.dateEnreg,
+          agent_login: JSON.parse(localStorage.getItem("user") || "{}").login || null,
         }),
       });
 

@@ -51,7 +51,7 @@ export default function DashboardPage() {
 
   const typeData = [
     { name: "Passeport", value: stats.passeports },
-    { name: "Carte d'identité", value: stats.cni },
+    { name: "CNI", value: stats.cni },
   ];
 
   const COLORS = ["#1e3a8a", "#16a34a", "#2563eb"];

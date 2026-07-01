@@ -26,6 +26,7 @@ class DocumentSchema(BaseModel):
     type_doc: Optional[str] = None
     photo_profil: Optional[str] = None
     date_enreg: str
+    agent_login: Optional[str] = None
 
     @field_validator("numero_doc")
     @classmethod
@@ -43,13 +44,13 @@ def save_document(doc: DocumentSchema):
             nom, prenom, numero_doc, nationalite,
             date_naissance, lieu_naissance, sexe,
             profession, date_delivrance, date_expiration,
-            motif_visite, type_doc, photo_profil, date_enreg
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            motif_visite, type_doc, photo_profil, date_enreg, agent_login
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         doc.nom, doc.prenom, doc.numero_doc, doc.nationalite,
         doc.date_naissance, doc.lieu_naissance, doc.sexe,
         doc.profession, doc.date_delivrance, doc.date_expiration,
-        doc.motif_visite, doc.type_doc, doc.photo_profil, doc.date_enreg
+        doc.motif_visite, doc.type_doc, doc.photo_profil, doc.date_enreg, doc.agent_login
     ))
 
     conn.commit()
@@ -210,6 +211,24 @@ def get_expired_documents():
         "data": expires
     }
 
+@router.get("/historique/{numero_doc}")
+def get_historique(numero_doc: str):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, date_enreg, heure_sortie, motif_visite
+        FROM extractions
+        WHERE numero_doc = ?
+        ORDER BY date_enreg DESC
+    """, (numero_doc,))
+    rows = cursor.fetchall()
+    conn.close()
+    return {
+        "success": True,
+        "nombre": len(rows),
+        "data": [dict(r) for r in rows]
+    }
+
 @router.get("/{doc_id}")
 def get_document(doc_id: int):
     conn = get_connection()
@@ -277,6 +296,8 @@ def update_document(doc_id: int, doc: DocumentSchema):
     return {"success": True, "message": "Document mis à jour avec succès"}
 
 
+
+
 @router.put("/{doc_id}/sortie")
 def marquer_sortie(doc_id: int):
     """
@@ -299,6 +320,7 @@ def marquer_sortie(doc_id: int):
             status_code=409,
             detail="La sortie de ce visiteur a déjà été enregistrée."
         )
+
 
     cursor.execute("""
         UPDATE extractions

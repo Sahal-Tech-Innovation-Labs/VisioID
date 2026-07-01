@@ -23,7 +23,6 @@ os.makedirs(TEMP_FOLDER, exist_ok=True)
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# Cascade Haar pour la détection de visage (fournie avec opencv-python)
 _FACE_CASCADE = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 )
@@ -31,65 +30,63 @@ _FACE_CASCADE = cv2.CascadeClassifier(
 
 def detecter_type_doc(texte):
     texte_upper = texte.upper()
-    if "PASSEPORT" in texte_upper:
+    if "PASSEPORT" in texte_upper or "PASSPORT" in texte_upper:
         return "PASSEPORT"
-    elif "IDENTITE" in texte_upper:
+    elif "IDENTIT" in texte_upper or "IDENTITY" in texte_upper:
         return "CNI"
     return "INCONNU"
 
 
-def extraire_photo_profil(image_path, marge_ratio=0.25, marge_bas_ratio=0.5, max_dim=300):
+def extraire_photo_profil(image_path, type_doc="INCONNU", max_dim=300):
     """
-    Détecte le visage sur l'image scannée et retourne une photo de profil
-    rognée (avec une petite marge pour garder un effet "photo d'identité"),
-    redimensionnée et encodée en base64 (data URL JPEG).
-
-    Retourne None si l'image est illisible, si aucun visage n'est détecté,
-    ou si la zone détectée couvre une trop grande partie de l'image
-    (signe probable de faux positif plutôt qu'un vrai visage).
+    CNI      → rognage sur zone fixe (coin supérieur gauche, où est toujours la photo sur CNI burkinabè)
+    Passeport → détection de visage Haar Cascade (marche bien sur passeport)
     """
     image = cv2.imread(image_path)
     if image is None:
         return None
 
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     img_h, img_w = image.shape[:2]
 
-    # On limite la taille max d'un visage détecté pour écarter les faux
-    # positifs qui couvriraient quasi toute l'image (motifs du fond, etc.)
-    max_face_dim = int(min(img_w, img_h) * 0.7)
+    if type_doc == "CNI":
+        x1 = 0
+        x2 = int(img_w * 0.20)
+        y1 = int(img_h * 0.10)
+        y2 = int(img_h * 0.90)
+        portrait = image[y1:y2, x1:x2]
 
-    visages = _FACE_CASCADE.detectMultiScale(
-        gray, scaleFactor=1.1, minNeighbors=6,
-        minSize=(60, 60), maxSize=(max_face_dim, max_face_dim)
-    )
+    else:
+        # Passeport : détection Haar Cascade
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        max_face_dim = int(min(img_w, img_h) * 0.7)
 
-    if len(visages) == 0:
-        return None
+        visages = _FACE_CASCADE.detectMultiScale(
+            gray, scaleFactor=1.1, minNeighbors=6,
+            minSize=(60, 60), maxSize=(max_face_dim, max_face_dim)
+        )
 
-    # En cas de détections multiples, on garde le plus grand visage
-    x, y, w, h = max(visages, key=lambda v: v[2] * v[3])
+        if len(visages) == 0:
+            return None
 
-    # Garde-fou : un vrai portrait photo d'identité ne devrait pas occuper
-    # plus de la moitié de la surface totale du scan
-    if (w * h) > 0.5 * img_w * img_h:
-        return None
+        x, y, w, h = max(visages, key=lambda v: v[2] * v[3])
 
-    # Marges resserrées : juste assez pour un cadre "photo d'identité"
-    marge_x = int(w * marge_ratio)
-    marge_haut = int(h * marge_ratio)
-    marge_bas = int(h * marge_bas_ratio)
+        if (w * h) > 0.5 * img_w * img_h:
+            return None
 
-    x1 = max(0, x - marge_x)
-    y1 = max(0, y - marge_haut)
-    x2 = min(img_w, x + w + marge_x)
-    y2 = min(img_h, y + h + marge_bas)
+        marge_x = int(w * 0.25)
+        marge_haut = int(h * 0.25)
+        marge_bas = int(h * 0.5)
 
-    portrait = image[y1:y2, x1:x2]
+        x1 = max(0, x - marge_x)
+        y1 = max(0, y - marge_haut)
+        x2 = min(img_w, x + w + marge_x)
+        y2 = min(img_h, y + h + marge_bas)
+        portrait = image[y1:y2, x1:x2]
 
-
-    # Redimensionnement pour limiter la taille du base64 stocké en BDD
+    # Redimensionnement
     h_crop, w_crop = portrait.shape[:2]
+    if h_crop == 0 or w_crop == 0:
+        return None
     if max(h_crop, w_crop) > max_dim:
         scale = max_dim / max(h_crop, w_crop)
         portrait = cv2.resize(
@@ -108,8 +105,13 @@ def extraire_photo_profil(image_path, marge_ratio=0.25, marge_bas_ratio=0.5, max
 
 def extraire_cni_regex(texte):
     """
-    Extraction rapide par regex pour CNI burkinabè
+    Extraction pour CNI burkinabè.
+    Gère deux générations :
+    - Ancienne : "CARTE NATIONALE D'IDENTITE BURKINABE", numéro B+chiffres après "Expire le"
+    - Nouvelle  : "CARTE D'IDENTITE / IDENTITY CARD", numéro 17 chiffres en haut
     """
+    is_nouvelle = "IDENTITY CARD" in texte.upper()
+
     def extraire_champ(cles):
         for cle in cles:
             pattern = rf"{cle}\s*[:\-]?\s*([A-Za-zÀ-ÿ]+)"
@@ -127,7 +129,10 @@ def extraire_cni_regex(texte):
         return match.group(1).strip().split('\n')[0].strip() if match else None
 
     def extraire_date_naissance():
-        match = re.search(r"N[ée]\(e\)\s*le\s*[:\-]?\s*([\d/\s]+)", texte, re.IGNORECASE)
+        if is_nouvelle:
+            match = re.search(r"N[ée].{0,4}le\s*[:\-]?\s*([\d/\s]+)", texte, re.IGNORECASE)
+        else:
+            match = re.search(r"N[ée]\(e\)\s*le\s*[:\-]?\s*([\d/\s]+)", texte, re.IGNORECASE)
         if match:
             date = match.group(1).strip()
             date = re.split(r'[AÀ]', date)[0].strip()
@@ -135,15 +140,32 @@ def extraire_cni_regex(texte):
         return None
 
     def extraire_lieu_naissance():
-        match = re.search(
-            r"N[ée]\(e\)\s*le\s*[:\-]?\s*[\d/\s]+[AÀ]\s+([A-Za-zÀ-ÿ\s\'\-]+)",
-            texte, re.IGNORECASE
-        )
+        if is_nouvelle:
+            match = re.search(
+                r"N[ée].{0,4}le\s*[:\-]?\s*[\d/\s]+[AÀ]\s*[:\-]?\s*([A-Za-zÀ-ÿ\s\'\-]+)",
+                texte, re.IGNORECASE
+            )
+        else:
+            match = re.search(
+                r"N[ée]\(e\)\s*le\s*[:\-]?\s*[\d/\s]+[AÀ]\s+([A-Za-zÀ-ÿ\s\'\-]+)",
+                texte, re.IGNORECASE
+            )
         return match.group(1).strip().split('\n')[0].strip() if match else None
 
     def extraire_numero_piece():
-        match = re.search(r"Expire\s*le\s*[:\-]?\s*[\d/]+\s+([B]\d{8})", texte, re.IGNORECASE)
-        return match.group(1).strip() if match else None
+        # Priorité 1 : B+chiffres après "Expire le" (ancienne CNI)
+        match = re.search(r"Expire\s*le\s*[:\-]?\s*[\d/]+\s+(B\d+)", texte, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        # Priorité 2 : B+chiffres n'importe où
+        match = re.search(r"\b(B\d+)\b", texte, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        # Priorité 3 : 17 chiffres (nouvelle CNI)
+        match = re.search(r"(?<!\d)(\d{17})(?!\d)", texte)
+        if match:
+            return match.group(1).strip()
+        return None
 
     def extraire_date_expiration():
         match = re.search(r"Expire\s*le\s*[:\-]?\s*([\d/]+)", texte, re.IGNORECASE)
@@ -154,8 +176,7 @@ def extraire_cni_regex(texte):
         return match.group(1).strip() if match else None
 
     def extraire_nationalite():
-        match = re.search(r"IDENTITE\s+(\w+)", texte, re.IGNORECASE)
-        return match.group(1).strip() if match else None
+        return "BURKINABE"
 
     return {
         "type_doc":        "CNI",
@@ -173,9 +194,6 @@ def extraire_cni_regex(texte):
 
 
 def extraire_avec_ia(texte_brut):
-    """
-    Extraction intelligente via Groq pour passeport
-    """
     try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -224,16 +242,7 @@ Si un champ est introuvable mets null. UNIQUEMENT le JSON brut, rien d'autre."""
         raise Exception(f"Erreur Groq : {str(e)}")
 
 
-
 def extraire_hybride(texte_brut, image_path=None):
-    """
-    Détecte le type de document et applique la bonne méthode :
-    - CNI      → regex (rapide, < 1 seconde)
-    - Passeport → Groq IA (flexible, ~2 secondes)
-
-    Si image_path est fourni, ajoute aussi "photo_profil" (portrait
-    rogné en base64) au résultat via détection de visage OpenCV.
-    """
     type_doc = detecter_type_doc(texte_brut)
 
     if type_doc == "CNI":
@@ -242,6 +251,6 @@ def extraire_hybride(texte_brut, image_path=None):
         resultat = extraire_avec_ia(texte_brut)
 
     if image_path:
-        resultat["photo_profil"] = extraire_photo_profil(image_path)
+        resultat["photo_profil"] = extraire_photo_profil(image_path, type_doc=type_doc)
 
     return resultat
