@@ -13,6 +13,7 @@ services:
       - PYTHONUNBUFFERED=1
       - GROQ_API_KEY=${GROQ_API_KEY}
     command: uvicorn main:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
 
   frontend:
     build:
@@ -26,4 +27,6 @@ services:
       - backend
     environment:
       - CHOKIDAR_USEPOLLING=true
-    command: npm run dev
+      - NODE_ENV=development
+    command: npm run dev -- --hostname 0.0.0.0 --port 3000
+    restart: unless-stopped
