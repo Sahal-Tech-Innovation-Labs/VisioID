@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-export function proxy(request) {
+export function middleware(request) {
   const token = request.cookies.get("token")?.value ||
     request.headers.get("authorization")?.replace("Bearer ", "");
 

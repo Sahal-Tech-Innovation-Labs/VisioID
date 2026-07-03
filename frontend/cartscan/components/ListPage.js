@@ -25,10 +25,11 @@ const [loadingHistorique, setLoadingHistorique] = useState(false);
     const urlFilter = searchParams.get("filter");
     const fetchDocuments = async () => {
       try {
-        let url = "http://localhost:8000/documents/";
-        if (urlFilter === "expires") url = "http://localhost:8000/documents/expires";
-        if (urlFilter === "cni") url = "http://localhost:8000/documents/type/cni";
-        if (urlFilter === "passeport") url = "http://localhost:8000/documents/type/passeport";
+        const API = process.env.NEXT_PUBLIC_API_URL;
+let url = `${API}/documents/`;
+if (urlFilter === "expires") url = `${API}/documents/expires`;
+if (urlFilter === "cni") url = `${API}/documents/type/cni`;
+if (urlFilter === "passeport") url = `${API}/documents/type/passeport`;
         const response = await fetch(url);
         const result = await response.json();
         if (result.success) setDocuments(result.data);
@@ -167,7 +168,9 @@ const [loadingHistorique, setLoadingHistorique] = useState(false);
   const handleVoirHistorique = async (numero_doc) => {
   setLoadingHistorique(true);
   try {
-    const response = await fetch(`http://localhost:8000/documents/historique/${numero_doc}`);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/historique/${numero_doc}`, {
+      method: "GET",
+    });
     const result = await response.json();
     if (result.success) setHistorique(result.data);
   } catch (err) {
@@ -180,7 +183,7 @@ const [loadingHistorique, setLoadingHistorique] = useState(false);
   const handleDelete = async (id) => {
     if (!confirm("Voulez-vous vraiment supprimer ce document ?")) return;
     try {
-      const response = await fetch(`http://localhost:8000/documents/${id}`, { method: "DELETE" });
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/${id}`, { method: "DELETE" });
       const result = await response.json();
       if (result.success) setDocuments(documents.filter((doc) => doc.id !== id));
     } catch (err) {
@@ -199,7 +202,7 @@ const [loadingHistorique, setLoadingHistorique] = useState(false);
   const handleMarquerSortie = async (doc) => {
     setMarquantSortie(true);
     try {
-      const response = await fetch(`http://localhost:8000/documents/${doc.id}/sortie`, { method: "PUT" });
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/${doc.id}/sortie`, { method: "PUT" });
       const result = await response.json();
       if (!response.ok) { alert(result.detail || "Erreur."); return; }
       const updated = { ...doc, heure_sortie: result.heure_sortie };

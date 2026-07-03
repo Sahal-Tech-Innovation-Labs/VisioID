@@ -1,22 +1,31 @@
-import sqlite3
+import psycopg2
+import psycopg2.extras
 import os
+from dotenv import load_dotenv
 from passlib.context import CryptContext
 
-DB_PATH = "cartscan.db"
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 def get_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(DATABASE_URL)
     return conn
+
+
+def get_cursor(conn):
+    return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
 
 def init_db():
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS extractions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             nom TEXT,
             prenom TEXT,
             numero_doc TEXT,
@@ -32,46 +41,35 @@ def init_db():
             photo_profil TEXT,
             heure_sortie TEXT,
             agent_login TEXT,
-            date_enreg TEXT DEFAULT (datetime('now', 'localtime'))
+            date_enreg TEXT DEFAULT TO_CHAR(NOW() AT TIME ZONE 'Africa/Abidjan', 'YYYY-MM-DD HH24:MI:SS')
         )
     """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             nom TEXT NOT NULL,
             prenom TEXT NOT NULL,
             login TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
             role TEXT NOT NULL DEFAULT 'vigile',
-            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            created_at TEXT DEFAULT TO_CHAR(NOW() AT TIME ZONE 'Africa/Abidjan', 'YYYY-MM-DD HH24:MI:SS')
         )
     """)
 
-    # Migration extractions
-    cursor.execute("PRAGMA table_info(extractions)")
-    colonnes = [col[1] for col in cursor.fetchall()]
-    if "photo_profil" not in colonnes:
-        cursor.execute("ALTER TABLE extractions ADD COLUMN photo_profil TEXT")
-    if "heure_sortie" not in colonnes:
-        cursor.execute("ALTER TABLE extractions ADD COLUMN heure_sortie TEXT")
-    if "agent_login" not in colonnes:
-        cursor.execute("ALTER TABLE extractions ADD COLUMN agent_login TEXT")
-
-    # Créer un compte admin par défaut si aucun utilisateur n'existe
-    cursor.execute("SELECT COUNT(*) FROM users")
-    count = cursor.fetchone()[0]
-    if count == 0:
+    # Compte admin par défaut si aucun utilisateur n'existe
+    cursor.execute("SELECT COUNT(*) as total FROM users")
+    row = cursor.fetchone()
+    if row["total"] == 0:
         cursor.execute("""
             INSERT INTO users (nom, prenom, login, password_hash, role)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
         """, (
-            "Admin",
-            "Sahal",
-            "admin",
+            "Admin", "Sahal", "admin",
             pwd_context.hash("admin123"),
             "admin"
         ))
 
     conn.commit()
+    cursor.close()
     conn.close()

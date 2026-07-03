@@ -1,14 +1,11 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, field_validator
-from app.models.database import get_connection
+from app.models.database import get_connection, get_cursor
 from typing import Optional
 import re
 from datetime import datetime
 
-router = APIRouter(
-    prefix="/documents",
-    tags=["Documents"]
-)
+router = APIRouter(prefix="/documents", tags=["Documents"])
 
 
 class DocumentSchema(BaseModel):
@@ -19,9 +16,9 @@ class DocumentSchema(BaseModel):
     date_naissance: str
     lieu_naissance: str
     sexe: str
-    profession: str
+    profession: Optional[str] = None
     date_delivrance: Optional[str] = None
-    date_expiration: str
+    date_expiration: Optional[str] = None
     motif_visite: Optional[str] = None
     type_doc: Optional[str] = None
     photo_profil: Optional[str] = None
@@ -37,7 +34,7 @@ class DocumentSchema(BaseModel):
 @router.post("/")
 def save_document(doc: DocumentSchema):
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
 
     cursor.execute("""
         INSERT INTO extractions (
@@ -45,31 +42,31 @@ def save_document(doc: DocumentSchema):
             date_naissance, lieu_naissance, sexe,
             profession, date_delivrance, date_expiration,
             motif_visite, type_doc, photo_profil, date_enreg, agent_login
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
     """, (
         doc.nom, doc.prenom, doc.numero_doc, doc.nationalite,
         doc.date_naissance, doc.lieu_naissance, doc.sexe,
         doc.profession, doc.date_delivrance, doc.date_expiration,
-        doc.motif_visite, doc.type_doc, doc.photo_profil, doc.date_enreg, doc.agent_login
+        doc.motif_visite, doc.type_doc, doc.photo_profil,
+        doc.date_enreg, doc.agent_login
     ))
 
+    new_id = cursor.fetchone()["id"]
     conn.commit()
-    new_id = cursor.lastrowid
+    cursor.close()
     conn.close()
 
-    return {
-        "success": True,
-        "message": "Document sauvegardé avec succès",
-        "id": new_id
-    }
+    return {"success": True, "message": "Document sauvegardé avec succès", "id": new_id}
 
 
 @router.get("/stats")
 def get_stats():
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     cursor.execute("SELECT * FROM extractions")
     rows = cursor.fetchall()
+    cursor.close()
     conn.close()
 
     today = datetime.now().date()
@@ -94,79 +91,61 @@ def get_stats():
     return {
         "success": True,
         "data": {
-            "total":      total,
-            "expires":    expires,
-            "cni":        cni,
-            "passeports": passeports,
-            "actifs":     total - expires
+            "total": total, "expires": expires,
+            "cni": cni, "passeports": passeports,
+            "actifs": total - expires
         }
     }
 
+
 @router.get("/stats/evolution")
 def get_evolution(period: str = "month"):
-    """
-    Retourne l'évolution des enregistrements
-    day   → par heure aujourd'hui
-    month → par jour ce mois
-    year  → par mois cette année
-    """
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
 
     if period == "day":
         cursor.execute("""
-            SELECT strftime('%H:00', date_enreg) as label,
-                   COUNT(*) as total
+            SELECT TO_CHAR(date_enreg::timestamp, 'HH24:00') as label, COUNT(*) as total
             FROM extractions
-            WHERE DATE(date_enreg) = DATE('now', 'localtime')
+            WHERE date_enreg::date = CURRENT_DATE
             GROUP BY label ORDER BY label
         """)
     elif period == "year":
         cursor.execute("""
-            SELECT strftime('%m/%Y', date_enreg) as label,
-                   COUNT(*) as total
+            SELECT TO_CHAR(date_enreg::timestamp, 'MM/YYYY') as label, COUNT(*) as total
             FROM extractions
-            WHERE strftime('%Y', date_enreg) = strftime('%Y', 'now')
+            WHERE EXTRACT(YEAR FROM date_enreg::timestamp) = EXTRACT(YEAR FROM NOW())
             GROUP BY label ORDER BY label
         """)
-    else:  # month
+    else:
         cursor.execute("""
-            SELECT strftime('%d/%m', date_enreg) as label,
-                   COUNT(*) as total
+            SELECT TO_CHAR(date_enreg::timestamp, 'DD/MM') as label, COUNT(*) as total
             FROM extractions
-            WHERE strftime('%m/%Y', date_enreg) = strftime('%m/%Y', 'now')
+            WHERE TO_CHAR(date_enreg::timestamp, 'MM/YYYY') = TO_CHAR(NOW(), 'MM/YYYY')
             GROUP BY label ORDER BY label
         """)
 
     rows = cursor.fetchall()
+    cursor.close()
     conn.close()
-
-    return {
-        "success": True,
-        "data": [dict(row) for row in rows]
-    }
+    return {"success": True, "data": [dict(r) for r in rows]}
 
 
 @router.get("/")
 def get_documents():
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM extractions ORDER BY date_enreg DESC")
-    rows = cursor.fetchall()
+    cursor = get_cursor(conn)
 
-    # Compte le nombre total de venues par numéro de document
-    # (les doublons sont autorisés, donc plusieurs lignes par visiteur)
     cursor.execute("""
-        SELECT numero_doc, COUNT(*) as total
-        FROM extractions
-        GROUP BY numero_doc
+        SELECT *, COUNT(*) OVER (PARTITION BY numero_doc) as nombre_visites
+        FROM extractions ORDER BY date_enreg DESC
     """)
-    compteurs = {row["numero_doc"]: row["total"] for row in cursor.fetchall()}
+    rows = cursor.fetchall()
+    cursor.close()
     conn.close()
 
     today = datetime.now().date()
     documents = []
-
     for row in rows:
         doc = dict(row)
         try:
@@ -174,29 +153,22 @@ def get_documents():
             doc["est_expire"] = date_exp < today
         except:
             doc["est_expire"] = False
-        doc["nombre_visites"] = compteurs.get(doc["numero_doc"], 1)
         documents.append(doc)
 
-    return {
-        "success": True,
-        "data": [d for d in documents if not d["est_expire"]]
-    }
+    return {"success": True, "data": [d for d in documents if not d["est_expire"]]}
 
 
 @router.get("/expires")
 def get_expired_documents():
-    """
-    Retourne uniquement les documents expirés
-    """
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     cursor.execute("SELECT * FROM extractions ORDER BY date_enreg DESC")
     rows = cursor.fetchall()
+    cursor.close()
     conn.close()
 
     today = datetime.now().date()
     expires = []
-
     for row in rows:
         doc = dict(row)
         try:
@@ -205,136 +177,108 @@ def get_expired_documents():
                 expires.append(doc)
         except:
             pass
+    return {"success": True, "data": expires}
 
-    return {
-        "success": True,
-        "data": expires
-    }
 
 @router.get("/historique/{numero_doc}")
 def get_historique(numero_doc: str):
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     cursor.execute("""
-        SELECT id, date_enreg, heure_sortie, motif_visite
-        FROM extractions
-        WHERE numero_doc = ?
+        SELECT id, date_enreg, heure_sortie, motif_visite, agent_login
+        FROM extractions WHERE numero_doc = %s
         ORDER BY date_enreg DESC
     """, (numero_doc,))
     rows = cursor.fetchall()
+    cursor.close()
     conn.close()
-    return {
-        "success": True,
-        "nombre": len(rows),
-        "data": [dict(r) for r in rows]
-    }
+    return {"success": True, "nombre": len(rows), "data": [dict(r) for r in rows]}
+
 
 @router.get("/{doc_id}")
 def get_document(doc_id: int):
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM extractions WHERE id = ?", (doc_id,))
+    cursor = get_cursor(conn)
+    cursor.execute("SELECT * FROM extractions WHERE id = %s", (doc_id,))
     row = cursor.fetchone()
+    cursor.close()
     conn.close()
-
     if not row:
         raise HTTPException(status_code=404, detail="Document non trouvé.")
-
     return {"success": True, "data": dict(row)}
 
 
 @router.delete("/{doc_id}")
 def delete_document(doc_id: int):
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id FROM extractions WHERE id = ?", (doc_id,))
-    existing = cursor.fetchone()
-
-    if not existing:
+    cursor = get_cursor(conn)
+    cursor.execute("SELECT id FROM extractions WHERE id = %s", (doc_id,))
+    if not cursor.fetchone():
+        cursor.close()
         conn.close()
         raise HTTPException(status_code=404, detail="Document non trouvé.")
-
-    cursor.execute("DELETE FROM extractions WHERE id = ?", (doc_id,))
+    cursor.execute("DELETE FROM extractions WHERE id = %s", (doc_id,))
     conn.commit()
+    cursor.close()
     conn.close()
-
     return {"success": True, "message": "Document supprimé avec succès"}
 
 
 @router.put("/{doc_id}")
 def update_document(doc_id: int, doc: DocumentSchema):
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id FROM extractions WHERE id = ?", (doc_id,))
-    existing = cursor.fetchone()
-
-    if not existing:
+    cursor = get_cursor(conn)
+    cursor.execute("SELECT id FROM extractions WHERE id = %s", (doc_id,))
+    if not cursor.fetchone():
+        cursor.close()
         conn.close()
         raise HTTPException(status_code=404, detail="Document non trouvé.")
 
     cursor.execute("""
         UPDATE extractions SET
-            nom = ?, prenom = ?, numero_doc = ?,
-            nationalite = ?, date_naissance = ?,
-            lieu_naissance = ?, sexe = ?,
-            profession = ?, date_delivrance = ?,
-            date_expiration = ?, motif_visite = ?,
-            type_doc = ?, photo_profil = ?
-        WHERE id = ?
+            nom=%s, prenom=%s, numero_doc=%s, nationalite=%s,
+            date_naissance=%s, lieu_naissance=%s, sexe=%s,
+            profession=%s, date_delivrance=%s, date_expiration=%s,
+            motif_visite=%s, type_doc=%s, photo_profil=%s, agent_login=%s
+        WHERE id = %s
     """, (
-        doc.nom, doc.prenom, doc.numero_doc,
-        doc.nationalite, doc.date_naissance,
-        doc.lieu_naissance, doc.sexe,
-        doc.profession, doc.date_delivrance,
-        doc.date_expiration, doc.motif_visite,
-        doc.type_doc, doc.photo_profil, doc_id
+        doc.nom, doc.prenom, doc.numero_doc, doc.nationalite,
+        doc.date_naissance, doc.lieu_naissance, doc.sexe,
+        doc.profession, doc.date_delivrance, doc.date_expiration,
+        doc.motif_visite, doc.type_doc, doc.photo_profil,
+        doc.agent_login, doc_id
     ))
-
     conn.commit()
+    cursor.close()
     conn.close()
-
     return {"success": True, "message": "Document mis à jour avec succès"}
-
-
 
 
 @router.put("/{doc_id}/sortie")
 def marquer_sortie(doc_id: int):
-    """
-    Marque la sortie d'un visiteur : enregistre l'heure actuelle
-    dans heure_sortie. Action manuelle, déclenchée depuis la liste
-    ou la fiche du visiteur.
-    """
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, heure_sortie FROM extractions WHERE id = ?", (doc_id,))
+    cursor = get_cursor(conn)
+    cursor.execute("SELECT id, heure_sortie FROM extractions WHERE id = %s", (doc_id,))
     existing = cursor.fetchone()
 
     if not existing:
+        cursor.close()
         conn.close()
         raise HTTPException(status_code=404, detail="Document non trouvé.")
 
     if existing["heure_sortie"]:
+        cursor.close()
         conn.close()
-        raise HTTPException(
-            status_code=409,
-            detail="La sortie de ce visiteur a déjà été enregistrée."
-        )
-
+        raise HTTPException(status_code=409, detail="La sortie de ce visiteur a déjà été enregistrée.")
 
     cursor.execute("""
         UPDATE extractions
-        SET heure_sortie = datetime('now', 'localtime')
-        WHERE id = ?
+        SET heure_sortie = TO_CHAR(NOW() AT TIME ZONE 'Africa/Abidjan', 'YYYY-MM-DD HH24:MI:SS')
+        WHERE id = %s RETURNING heure_sortie
     """, (doc_id,))
 
-    conn.commit()
-    cursor.execute("SELECT heure_sortie FROM extractions WHERE id = ?", (doc_id,))
     heure_sortie = cursor.fetchone()["heure_sortie"]
+    conn.commit()
+    cursor.close()
     conn.close()
-
-    return {
-        "success": True,
-        "message": "Sortie enregistrée avec succès",
-        "heure_sortie": heure_sortie
-    }
+    return {"success": True, "message": "Sortie enregistrée avec succès", "heure_sortie": heure_sortie}

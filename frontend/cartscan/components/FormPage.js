@@ -192,8 +192,8 @@ export default function FormPage() {
 
     try {
       const url = editId
-        ? `http://localhost:8000/documents/${editId}`
-        : "http://localhost:8000/documents/";
+        ? `${process.env.NEXT_PUBLIC_API_URL}/documents/${editId}`
+        : `${process.env.NEXT_PUBLIC_API_URL}/documents/`;
 
       const method = editId ? "PUT" : "POST";
 

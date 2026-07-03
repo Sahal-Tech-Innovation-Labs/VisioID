@@ -43,7 +43,7 @@ export default function Layout({ children }) {
 
   const initiales = user ? `${user.prenom?.[0] || ""}${user.nom?.[0] || ""}` : "?";
   const nomComplet = user ? `${user.prenom} ${user.nom}` : "Chargement...";
-  const roleLabel = isAdmin ? "Administrateur" : "Agent de sécurité";
+  const roleLabel = isAdmin ? "Administrateur" : "";
 
   // Navigation items filtrés selon le rôle (les vigiles voient tout sauf gestion comptes)
   const navItemsFiltered = [
@@ -64,12 +64,12 @@ export default function Layout({ children }) {
             <p className="text-[10px] text-white/50 mt-0.5">{roleLabel}</p>
           </div>
         )}
-        {sidebarOpen && (
-          <button onClick={handleLogout} title="Déconnexion"
-            className="p-1 rounded hover:bg-white/10 text-white/50 hover:text-red-400 transition-colors shrink-0">
-            <LogOut style={{ width: 14, height: 14 }} />
-          </button>
-        )}
+        
+          <button onClick={handleLogout}
+  className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-red-500/20 text-white/50 hover:text-red-400 transition-colors text-xs font-medium shrink-0">
+  <LogOut style={{ width: 12, height: 12 }} />
+  {sidebarOpen && <span>Déconnexion</span>}
+</button>
       </div>
     </div>
   );

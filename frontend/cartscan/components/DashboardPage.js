@@ -14,6 +14,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("month");
   
+useEffect(() => {
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  if (user.role !== "admin") {
+    router.push("/");
+  }
+}, []);
 
   useEffect(() => {
     fetchStats();
@@ -22,7 +28,9 @@ export default function DashboardPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch("http://localhost:8000/documents/stats");
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/stats`, {
+        method: "GET",
+      });
       const result = await response.json();
       if (result.success) setStats(result.data);
     } catch (err) {

@@ -32,7 +32,7 @@ export default function CapturePage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("http://localhost:8000/extract/scan", {
+     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/extract/scan`, {
         method: "POST",
         body: formData,
       });
