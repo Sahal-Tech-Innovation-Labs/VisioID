@@ -1,67 +1,49 @@
-# CniScan — Système d'extraction de pièces d'identité/Passeport
+# VisioID / CniScan
 
-Application mobile permettant d'extraire automatiquement les informations d'une CNI ou d'un passeport burkinabè via OCR, de les afficher dans un formulaire, et de les sauvegarder en base de données.
+CniScan est une application d'extraction et de gestion de documents d'identité burkinabè (CNI et passeport). Le backend FastAPI traite l'OCR, la transcription audio et l'authentification, tandis que le frontend Next.js offre l'interface d'upload, de consultation et de statistiques.
 
 ---
 
 ## Aperçu des fonctionnalités
 
--  Upload d'image par drag & drop ou sélection
--  Extraction automatique des données (nom, prénom, date de naissance, profession...)
--  Formulaire pré-rempli avec les données extraites
--  Sauvegarde en base de données SQLite
--  Liste des documents enregistrés avec recherche
--  Modification et suppression des enregistrements
--  Dashboard de statistiques
+- Upload d'images JPEG/PNG
+- Extraction de texte via Tesseract
+- Classification CNI / Passeport
+- Transcription audio via Groq
+- Authentification et gestion des utilisateurs
+- Sauvegarde des documents dans PostgreSQL
+- Liste des documents, historique, expiration et statistiques
 
 ---
 
 ## Prérequis
 
-Avant de lancer le projet, assurez-vous d'avoir installé :
-
-### 1. Python 3.9+
-```
+### 1. Python 3.12+
 https://www.python.org/downloads/
-```
-Vérifie l'installation :
+
+Vérifier l'installation :
 ```bash
 python --version
 ```
 
-### 2. Node.js 18+
-```
+### 2. Node.js 20+
 https://nodejs.org/
-```
-Vérifie l'installation :
+
+Vérifier l'installation :
 ```bash
 node --version
 npm --version
 ```
 
-### 3. Tesseract OCR
-Tesseract est le moteur OCR utilisé pour lire le texte sur les images.
+### 3. PostgreSQL
+Le backend se connecte à PostgreSQL via `DATABASE_URL`.
+
+### 4. Tesseract OCR
+Tesseract est utilisé dans le backend pour l'OCR.
 
 **Windows :**
-Télécharge et installe depuis :
-```
-https://github.com/UB-Mannheim/tesseract/wiki
-```
-
-Après installation, télécharge le fichier de langue française `fra.traineddata` :
-```
-https://github.com/tesseract-ocr/tessdata/raw/main/fra.traineddata
-```
-Et copie-le dans :
-```
-C:\Program Files\Tesseract-OCR\tessdata\
-```
-
-Vérifie l'installation :
-```bash
-tesseract --list-langs
-# Doit afficher : eng, fra, osd
-```
+- Installer depuis https://github.com/UB-Mannheim/tesseract/wiki
+- Copier `fra.traineddata` dans `C:\Program Files\Tesseract-OCR\tessdata\`
 
 **Ubuntu/Debian :**
 ```bash
@@ -84,116 +66,100 @@ git clone https://github.com/Sahal-Tech-Innovation-Labs/VisioID.git
 cd VisioID
 ```
 
----
-
-### Backend (FastAPI)
-
+### Backend
 ```bash
-# 1. Aller dans le dossier backend
 cd BACKEND
-
-# 2. Créer l'environnement virtuel
 python -m venv venv
-
-# 3. Activer le venv
 # Windows :
 .\venv\Scripts\activate
 # Mac/Linux :
 source venv/bin/activate
-
-# 4. Installer les dépendances
 pip install -r requirements.txt
 ```
 
----
-
-### Frontend (Next.js)
-
+### Frontend
 ```bash
-# Aller dans le dossier frontend
 cd frontend/cartscan
-
-# Installer les dépendances
 npm install
 ```
 
 ---
 
-### Docker
+## Configuration
 
-```bash
-# Depuis la racine du projet
-docker compose up --build
-```
-
-- Backend disponible sur `http://localhost:8000`
-- Frontend disponible sur `http://localhost:3000`
-
-Si vous utilisez une API Groq, exportez `GROQ_API_KEY` dans un fichier `.env` à la racine avant de lancer Docker.
-
-Example `.env`:
-```
+### Backend
+Créer `BACKEND/.env` avec :
+```env
+DATABASE_URL=postgresql://user:password@localhost:5432/visioid
+SECRET_KEY=change_me
 GROQ_API_KEY=your_groq_api_key_here
+```
+
+### Frontend
+Créer `frontend/cartscan/.env.local` avec :
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 ---
 
-## Lancement
+## Lancement local
 
-### Terminal 1 — Backend
+### Backend
 ```bash
 cd BACKEND
-.\venv\Scripts\activate      # Windows
-uvicorn main:app --reload
+.\venv\Scripts\activate  # Windows
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
-Le backend démarre sur **http://localhost:8000**
 
-Documentation API interactive : **http://localhost:8000/docs**
-
-### Terminal 2 — Frontend
+### Frontend
 ```bash
 cd frontend/cartscan
 npm run dev
 ```
-L'application démarre sur **http://localhost:3000**
+
+- Frontend : http://localhost:3000
+- Backend : http://localhost:8000
+- API docs : http://localhost:8000/docs
 
 ---
 
-## Routes API
+## Lancement avec Docker
 
-### OCR — Extraction
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| POST | `/extract/scan` | Reçoit une image et retourne les données extraites |
-
-**Exemple de réponse :**
-```json
-{
-  "success": true,
-  "data": {
-    "type_doc": "CNI",
-    "nom": "SAWADOGO",
-    "prenom": "ROMAIN",
-    "numero_doc": "B11944893",
-    "nationalite": "BURKINABE",
-    "date_naissance": "07/07/2000",
-    "lieu_naissance": "TENKODOGO",
-    "sexe": "M",
-    "profession": "ELEVE",
-    "date_delivrance": "16/10/2019",
-    "date_expiration": "15/10/2029"
-  }
-}
+```bash
+docker compose up --build
 ```
 
-### Documents — CRUD
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| POST | `/documents/` | Sauvegarde un document en BDD |
-| GET | `/documents/` | Retourne la liste de tous les documents |
-| GET | `/documents/{id}` | Retourne le détail d'un document |
-| PUT | `/documents/{id}` | Met à jour un document existant |
-| DELETE | `/documents/{id}` | Supprime un document |
+- Backend : http://localhost:8000
+- Frontend : http://localhost:3000
+
+---
+
+## API Principales
+
+### Auth
+- `POST /auth/login` : authentification
+- `GET /auth/me` : informations du token
+- `GET /auth/users` : liste des utilisateurs (admin)
+- `POST /auth/users` : création d'utilisateur (admin)
+- `DELETE /auth/users/{user_id}` : suppression d'utilisateur (admin)
+- `PUT /auth/users/{user_id}/password` : mise à jour du mot de passe (admin)
+
+### Extraction
+- `POST /extract/scan` : upload d'image et extraction des données
+- `POST /extract/transcribe` : upload audio et transcription
+
+### Documents
+- `GET /documents/` : liste des documents
+- `POST /documents/` : sauvegarde d'un document
+- `GET /documents/{id}` : détail d'un document
+- `PUT /documents/{id}` : mise à jour d'un document
+- `DELETE /documents/{id}` : suppression d'un document
+- `PUT /documents/{id}/sortie` : marquer la sortie
+- `GET /documents/expires` : documents expirés
+- `GET /documents/historique/{numero_doc}` : historique d'un document
+- `GET /documents/stats` : statistiques globales
+- `GET /documents/stats/evolution` : évolution des enregistrements
 
 ---
 
@@ -201,63 +167,62 @@ L'application démarre sur **http://localhost:3000**
 
 ```
 VisioID/
-├── BACKEND/                        ← API FastAPI
-│   ├── main.py                     ← Point d'entrée
-│   ├── requirements.txt            ← Dépendances Python
-│   └── app/
-│       ├── routers/
-│       │   ├── extraction.py       ← Route OCR /extract/scan
-│       │   └── documents.py        ← Routes CRUD /documents
-│       ├── services/
-│       │   └── ocr_service.py      ← Logique extraction Tesseract
-│       ├── models/
-│       └── database.py         ← Connexion SQLite
-│       
-│
-└── frontend/cartscan/              ← Application Next.js
+├── BACKEND/
+│   ├── Dockerfile
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── app/
+│   │   ├── routers/
+│   │   │   ├── auth.py
+│   │   │   ├── documents.py
+│   │   │   └── extraction.py
+│   │   ├── services/
+│   │   │   └── ocr_service.py
+│   │   └── models/
+│   │       └── database.py
+│   └── .env (local)
+└── frontend/cartscan/
+    ├── Dockerfile
+    ├── package.json
     ├── app/
-    │   ├── page.js                 ← Page accueil (upload)
-    │   ├── form/page.js            ← Formulaire données
-    │   ├── list/page.js            ← Liste documents
-    │   └── dashboard/page.js       ← Statistiques
-    └── components/
-        ├── CapturePage.js          ← Upload drag & drop
-        ├── FormPage.js             ← Formulaire pré-rempli
-        ├── ListPage.js             ← Tableau des documents
-        └── DashboardPage.js        ← Graphiques
+    │   ├── page.js
+    │   ├── login/page.js
+    │   ├── form/page.js
+    │   ├── list/page.js
+    │   └── dashboard/page.js
+    ├── components/
+    │   ├── CapturePage.js
+    │   ├── FormPage.js
+    │   ├── ListPage.js
+    │   └── DashboardPage.js
+    └── .env.local (local)
 ```
 
 ---
 
 ## Base de données
 
-La base SQLite `cartscan.db` est créée automatiquement au premier lancement du backend.
+Le backend utilise PostgreSQL.
 
-**Table `extractions` :**
-| Colonne | Type | Description |
-|---------|------|-------------|
-| id | INTEGER | Identifiant unique auto-incrémenté |
-| nom | TEXT | Nom de famille |
-| prenom | TEXT | Prénom(s) |
-| numero_doc | TEXT | Numéro de la pièce (ex: B11944893) |
-| nationalite | TEXT | Nationalité |
-| date_naissance | TEXT | Date de naissance |
-| lieu_naissance | TEXT | Lieu de naissance |
-| sexe | TEXT | M ou F |
-| profession | TEXT | Profession |
-| date_delivrance | TEXT | Date de délivrance |
-| date_expiration | TEXT | Date d'expiration |
-| motif_visite | TEXT | Motif de la visite |
-| date_enreg | TEXT | Date d'enregistrement (auto) |
+### Tables principales
 
-> **Note :** Un même document ne peut pas être enregistré deux fois le même jour (anti-doublon).
+- `extractions` : documents extraits, type de pièce, dates, photo de profil, historique de sortie
+- `users` : comptes utilisateurs et rôles
+
+Un compte admin est créé automatiquement si aucun utilisateur n'existe :
+
+- login : `admin`
+- mot de passe : `admin123`
 
 ---
 
-## Formats d'image acceptés
+## Notes
 
-- JPEG / JPG
-- PNG
+- Le backend se connecte à PostgreSQL via `DATABASE_URL`.
+- Le frontend utilise `NEXT_PUBLIC_API_URL` pour appeler l'API.
+- Le Docker Compose expose le backend sur le port `8000` et le frontend sur `3000`.
+- Si vous êtes sous Windows, installez Tesseract et configurez le chemin vers `tesseract.exe`.
+
 - Taille maximale recommandée : 5 MB
 - Pour de meilleurs résultats : image nette, bien éclairée, document centré
 
