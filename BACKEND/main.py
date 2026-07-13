@@ -14,15 +14,11 @@ init_db()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000"
-        "https://visio-id.vercel.app",
-        ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 app.include_router(extraction_router)
 app.include_router(documents_router)
 app.include_router(auth_router) 
