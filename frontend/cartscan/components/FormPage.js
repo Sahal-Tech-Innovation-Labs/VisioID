@@ -130,7 +130,7 @@ export default function FormPage() {
           const fd = new FormData();
           fd.append("file", audioBlob, "motif.webm");
 
-          const response = await fetch("http://localhost:8000/extract/transcribe", {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/extract/transcribe`, {
             method: "POST",
             body: fd,
           });

@@ -45,8 +45,8 @@ export default function AdminUsersPage() {
     setSubmitting(true);
     setError("");
     try {
-      const response = await fetch("http://localhost:8000/auth/users", {
-        method: "POST",
+const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/users`, {
+          method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getToken()}`,
@@ -71,7 +71,7 @@ export default function AdminUsersPage() {
   const handleDelete = async (id, login) => {
     if (!confirm(`Supprimer le compte "${login}" ?`)) return;
     try {
-      const response = await fetch(`http://localhost:8000/auth/users/${id}`, {
+const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/users/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${getToken()}` },
       });

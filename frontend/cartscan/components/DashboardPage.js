@@ -40,8 +40,7 @@ useEffect(() => {
 
   const fetchMonthlyData = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/documents/stats/evolution?period=${period}`);
-      const result = await response.json();
+const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/stats/evolution?period=${period}`);      const result = await response.json();
       if (result.success) setMonthlyData(result.data);
     } catch (err) {
       console.error("Erreur evolution:", err);
