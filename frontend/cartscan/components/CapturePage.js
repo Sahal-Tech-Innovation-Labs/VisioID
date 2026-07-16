@@ -93,7 +93,7 @@ export default function CapturePage() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-3 sm:p-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs text-gray-400 mb-4">
         <span className="hover:text-blue-600 cursor-pointer" onClick={() => router.push("/dashboard")}>
@@ -103,7 +103,7 @@ export default function CapturePage() {
         <span className="text-gray-700 font-medium">Nouvelle Entrée</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-5 h-full">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
         {/* LEFT — Scanner */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -117,14 +117,13 @@ export default function CapturePage() {
           <div className="p-5">
             {/* Zone scan */}
             <label
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
               className={`relative rounded-xl overflow-hidden border-2 cursor-pointer flex items-center justify-center
-                ${isDragging ? "border-blue-400 bg-blue-50" :
-                  scanned ? "border-green-400" : "border-dashed border-blue-300"}
-                bg-[#f8faff]`}
-              style={{ height: 280 }}
+  ${isDragging
+    ? "border-blue-400 bg-blue-50"
+    : scanned
+    ? "border-green-400"
+    : "border-dashed border-blue-300"}
+  bg-[#f8faff] h-[220px] sm:h-72`}
             >
               {loading ? (
                 <div className="flex flex-col items-center gap-3">

@@ -72,7 +72,7 @@ const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/stats
   }
 
   return (
-    <div className="min-h-screen p-8 bg-gray-50">
+   <div className="min-h-screen p-4 sm:p-8 bg-gray-50">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-semibold text-blue-900">Tableau de bord</h1>
         <Link
@@ -86,7 +86,7 @@ const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/stats
 
       {/* KPIs */}
   {/* KPIs */}
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+<div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
   {statsCards.map((stat, index) => (
     <div
       key={index}

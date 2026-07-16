@@ -7,4 +7,4 @@ export default function List() {
       <ListPage />
     </Suspense>
   );
-}
+} pas 
