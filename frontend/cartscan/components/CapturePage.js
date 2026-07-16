@@ -117,13 +117,14 @@ export default function CapturePage() {
           <div className="p-5">
             {/* Zone scan */}
             <label
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
               className={`relative rounded-xl overflow-hidden border-2 cursor-pointer flex items-center justify-center
-  ${isDragging
-    ? "border-blue-400 bg-blue-50"
-    : scanned
-    ? "border-green-400"
-    : "border-dashed border-blue-300"}
-  bg-[#f8faff] h-[220px] sm:h-72`}
+                ${isDragging ? "border-blue-400 bg-blue-50" :
+                  scanned ? "border-green-400" : "border-dashed border-blue-300"}
+                bg-[#f8faff]`}
+              style={{ height: 280 }}
             >
               {loading ? (
                 <div className="flex flex-col items-center gap-3">
