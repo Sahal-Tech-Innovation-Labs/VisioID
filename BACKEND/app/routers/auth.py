@@ -104,7 +104,6 @@ def list_users(payload: dict = Depends(require_admin)):
 def create_user(data: UserCreateSchema, payload: dict = Depends(require_admin)):
     conn = get_connection()
     cursor = get_cursor(conn)
-
     cursor.execute("SELECT id FROM users WHERE login = %s", (data.login,))
     if cursor.fetchone():
         cursor.close()

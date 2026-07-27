@@ -11,7 +11,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def get_connection():
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = psycopg2.connect(DATABASE_URL, sslmode='require', connect_timeout=10)
     return conn
 
 
@@ -57,7 +57,6 @@ def init_db():
         )
     """)
 
-    # Compte admin par défaut si aucun utilisateur n'existe
     cursor.execute("SELECT COUNT(*) as total FROM users")
     row = cursor.fetchone()
     if row["total"] == 0:
