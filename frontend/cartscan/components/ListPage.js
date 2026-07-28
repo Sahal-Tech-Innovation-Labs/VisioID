@@ -1,4 +1,5 @@
 "use client";
+import { Suspense } from "react";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -6,7 +7,7 @@ import {
   FileText, X, LogOut, Clock
 } from "lucide-react";
 
-export default function ListPage() {
+function ListPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,6 +40,8 @@ if (urlFilter === "passeport") url = `${API}/documents/type/passeport`;
         setLoading(false);
       }
     };
+
+    
     fetchDocuments();
   }, []);
 
@@ -484,5 +487,12 @@ if (urlFilter === "passeport") url = `${API}/documents/type/passeport`;
         </div>
       )}
     </div>
+  );
+}
+export default function ListPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Chargement...</p></div>}>
+      <ListPageContent />
+    </Suspense>
   );
 }
