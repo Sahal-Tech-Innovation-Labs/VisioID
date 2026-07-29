@@ -1,189 +1,442 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, UserPlus, Users,
-  MapPin, ChevronDown, Menu, X, LogOut, ShieldCheck
+  LayoutDashboard,
+  UserPlus,
+  Users,
+  MapPin,
+  ChevronDown,
+  Menu,
+  X,
+  LogOut,
+  ShieldCheck,
 } from "lucide-react";
 
 const navItems = [
   { icon: UserPlus, label: "Nouvelle Entrée", path: "/" },
-  { icon: Users,    label: "Visiteurs",       path: "/list" },
+  { icon: Users, label: "Visiteurs", path: "/list" },
 ];
+
+/* =========================================================
+   BLOC UTILISATEUR
+   Placé en dehors de Layout pour éviter de recréer
+   le composant à chaque rendu de Layout.
+========================================================= */
+
+function UserBlock({
+  initiales,
+  nomComplet,
+  roleLabel,
+  sidebarOpen,
+  handleLogout,
+}) {
+  return (
+    <div className="px-3 py-4 border-t border-white/10">
+      <div className="flex items-center gap-3">
+        {/* Avatar */}
+        <div className="w-8 h-8 rounded-full bg-[#1d4ed8] flex items-center justify-center shrink-0 text-xs font-bold">
+          {initiales}
+        </div>
+
+        {/* Informations utilisateur */}
+        {sidebarOpen && (
+          <div className="overflow-hidden flex-1">
+            <p className="text-xs font-semibold text-white/90 leading-none truncate">
+              {nomComplet}
+            </p>
+
+            <p className="text-[10px] text-white/50 mt-0.5">
+              {roleLabel}
+            </p>
+          </div>
+        )}
+
+        {/* Déconnexion */}
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-red-500/20 text-white/50 hover:text-red-400 transition-colors text-xs font-medium shrink-0"
+        >
+          <LogOut style={{ width: 12, height: 12 }} />
+
+          {sidebarOpen && <span>Déconnexion</span>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   LAYOUT PRINCIPAL
+========================================================= */
 
 export default function Layout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState(null);
 
+  /* =======================================================
+     Récupération de l'utilisateur connecté
+  ======================================================= */
+
   useEffect(() => {
     const stored = localStorage.getItem("user");
-    if (stored) setUser(JSON.parse(stored));
+
+    if (stored) {
+      try {
+        setUser(JSON.parse(stored));
+      } catch (error) {
+        console.error(
+          "Impossible de lire les informations utilisateur :",
+          error
+        );
+
+        localStorage.removeItem("user");
+      }
+    }
   }, []);
 
-  useEffect(() => { setMobileOpen(false); }, [pathname]);
+  /* =======================================================
+     Fermer le menu mobile lors du changement de page
+  ======================================================= */
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  /* =======================================================
+     Déconnexion
+  ======================================================= */
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+
     document.cookie = "token=; path=/; max-age=0";
+
     router.push("/login");
   };
+
+  /* =======================================================
+     Informations utilisateur
+  ======================================================= */
 
   const isAdmin = user?.role === "admin";
 
   const now = new Date();
+
   const dateStr = now.toLocaleDateString("fr-FR", {
-    day: "2-digit", month: "short", year: "numeric"
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   });
 
-  const initiales = user ? `${user.prenom?.[0] || ""}${user.nom?.[0] || ""}` : "?";
-  const nomComplet = user ? `${user.prenom} ${user.nom}` : "Chargement...";
+  const initiales = user
+    ? `${user.prenom?.[0] || ""}${user.nom?.[0] || ""}`
+    : "?";
+
+  const nomComplet = user
+    ? `${user.prenom || ""} ${user.nom || ""}`.trim()
+    : "Chargement...";
+
   const roleLabel = isAdmin ? "Administrateur" : "";
 
-  // Navigation items filtrés selon le rôle (les vigiles voient tout sauf gestion comptes)
+  /* =======================================================
+     Navigation selon le rôle
+  ======================================================= */
+
   const navItemsFiltered = [
-    ...(isAdmin ? [{ icon: LayoutDashboard, label: "Tableau de bord", path: "/dashboard" }] : []),
+    ...(isAdmin
+      ? [
+          {
+            icon: LayoutDashboard,
+            label: "Tableau de bord",
+            path: "/dashboard",
+          },
+        ]
+      : []),
+
     ...navItems,
-    ...(isAdmin ? [{ icon: ShieldCheck, label: "Gestion comptes", path: "/admin/users" }] : []),
+
+    ...(isAdmin
+      ? [
+          {
+            icon: ShieldCheck,
+            label: "Gestion comptes",
+            path: "/admin/users",
+          },
+        ]
+      : []),
   ];
 
-  const UserBlock = () => (
-    <div className="px-3 py-4 border-t border-white/10">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-[#1d4ed8] flex items-center justify-center shrink-0 text-xs font-bold">
-          {initiales}
-        </div>
-        {sidebarOpen && (
-          <div className="overflow-hidden flex-1">
-            <p className="text-xs font-semibold text-white/90 leading-none truncate">{nomComplet}</p>
-            <p className="text-[10px] text-white/50 mt-0.5">{roleLabel}</p>
-          </div>
-        )}
-        
-          <button onClick={handleLogout}
-  className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-red-500/20 text-white/50 hover:text-red-400 transition-colors text-xs font-medium shrink-0">
-  <LogOut style={{ width: 12, height: 12 }} />
-  {sidebarOpen && <span>Déconnexion</span>}
-</button>
-      </div>
-    </div>
-  );
+  /* =======================================================
+     Rendu
+  ======================================================= */
 
   return (
     <div className="flex h-screen bg-[#f0f3f8] overflow-hidden">
 
-      {/* Sidebar desktop */}
+      {/* ===================================================
+          SIDEBAR DESKTOP
+      =================================================== */}
+
       <aside
         className="hidden md:flex flex-col h-full bg-[#0f1e3d] text-white shrink-0 transition-all duration-300"
-        style={{ width: sidebarOpen ? "220px" : "64px" }}
+        style={{
+          width: sidebarOpen ? "220px" : "64px",
+        }}
       >
+        {/* Logo */}
         <div className="flex items-center gap-2 px-3 py-4 border-b border-white/10">
           <div className="relative w-10 h-8 shrink-0">
-            <Image src="/images/sahal.jpeg" alt="Logo Sahal Tech" fill className="object-contain" />
+            <Image
+              src="/images/sahal.jpeg"
+              alt="Logo Sahal Tech"
+              fill
+              className="object-contain"
+            />
           </div>
+
           {sidebarOpen && (
             <div className="overflow-hidden">
-              <p className="text-xs font-bold tracking-widest text-white/90 uppercase leading-none">CNI SCAN</p>
-              <p className="text-[10px] text-white/50 mt-0.5">Numérisation documents</p>
+              <p className="text-xs font-bold tracking-widest text-white/90 uppercase leading-none">
+                CNI SCAN
+              </p>
+
+              <p className="text-[10px] text-white/50 mt-0.5">
+                Numérisation documents
+              </p>
             </div>
           )}
         </div>
 
+        {/* Navigation */}
         <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
           {navItemsFiltered.map((item) => {
-            const isActive = item.path === "/" ? pathname === "/" : pathname.startsWith(item.path);
+            const isActive =
+              item.path === "/"
+                ? pathname === "/"
+                : pathname.startsWith(item.path);
+
             return (
               <Link key={item.label} href={item.path}>
-                <div className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                  isActive ? "bg-[#1d4ed8] text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
-                }`}>
-                  <item.icon style={{ width: 18, height: 18 }} className="shrink-0" />
-                  {sidebarOpen && <span className="text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis">{item.label}</span>}
+                <div
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-[#1d4ed8] text-white"
+                      : "text-white/60 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <item.icon
+                    style={{
+                      width: 18,
+                      height: 18,
+                    }}
+                    className="shrink-0"
+                  />
+
+                  {sidebarOpen && (
+                    <span className="text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis">
+                      {item.label}
+                    </span>
+                  )}
                 </div>
               </Link>
             );
           })}
         </nav>
-        <UserBlock />
+
+        {/* Utilisateur */}
+        <UserBlock
+          initiales={initiales}
+          nomComplet={nomComplet}
+          roleLabel={roleLabel}
+          sidebarOpen={sidebarOpen}
+          handleLogout={handleLogout}
+        />
       </aside>
 
-      {/* Drawer mobile */}
+      {/* ===================================================
+          DRAWER MOBILE
+      =================================================== */}
+
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMobileOpen(false)}>
+        <div
+          className="fixed inset-0 z-40 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        >
           <div className="absolute inset-0 bg-black/50" />
-          <aside className="absolute left-0 top-0 h-full w-64 bg-[#0f1e3d] text-white flex flex-col z-50" onClick={(e) => e.stopPropagation()}>
+
+          <aside
+            className="absolute left-0 top-0 h-full w-64 bg-[#0f1e3d] text-white flex flex-col z-50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header mobile */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <div className="relative w-10 h-8 shrink-0">
-                  <Image src="/images/sahal.jpeg" alt="Logo Sahal Tech" fill className="object-contain" />
+                  <Image
+                    src="/images/sahal.jpeg"
+                    alt="Logo Sahal Tech"
+                    fill
+                    className="object-contain"
+                  />
                 </div>
+
                 <div>
-                  <p className="text-xs font-bold tracking-widest text-white/90 uppercase leading-none">CNI SCAN</p>
-                  <p className="text-[10px] text-white/50 mt-0.5">Numérisation documents</p>
+                  <p className="text-xs font-bold tracking-widest text-white/90 uppercase leading-none">
+                    CNI SCAN
+                  </p>
+
+                  <p className="text-[10px] text-white/50 mt-0.5">
+                    Numérisation documents
+                  </p>
                 </div>
               </div>
-              <button onClick={() => setMobileOpen(false)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/60">
-                <X style={{ width: 18, height: 18 }} />
+
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-white/60"
+              >
+                <X
+                  style={{
+                    width: 18,
+                    height: 18,
+                  }}
+                />
               </button>
             </div>
 
+            {/* Navigation mobile */}
             <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
               {navItemsFiltered.map((item) => {
-                const isActive = item.path === "/" ? pathname === "/" : pathname.startsWith(item.path);
+                const isActive =
+                  item.path === "/"
+                    ? pathname === "/"
+                    : pathname.startsWith(item.path);
+
                 return (
-                  <Link key={item.label} href={item.path} onClick={() => setMobileOpen(false)}>
-                    <div className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                      isActive ? "bg-[#1d4ed8] text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
-                    }`}>
-                      <item.icon style={{ width: 18, height: 18 }} className="shrink-0" />
-                      <span className="text-sm font-medium">{item.label}</span>
+                  <Link
+                    key={item.label}
+                    href={item.path}
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    <div
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                        isActive
+                          ? "bg-[#1d4ed8] text-white"
+                          : "text-white/60 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      <item.icon
+                        style={{
+                          width: 18,
+                          height: 18,
+                        }}
+                        className="shrink-0"
+                      />
+
+                      <span className="text-sm font-medium">
+                        {item.label}
+                      </span>
                     </div>
                   </Link>
                 );
               })}
             </nav>
 
+            {/* Utilisateur mobile */}
             <div className="px-3 py-4 border-t border-white/10 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#1d4ed8] flex items-center justify-center shrink-0 text-xs font-bold">{initiales}</div>
-              <div className="flex-1 overflow-hidden">
-                <p className="text-xs font-semibold text-white/90 leading-none truncate">{nomComplet}</p>
-                <p className="text-[10px] text-white/50 mt-0.5">{roleLabel}</p>
+              <div className="w-8 h-8 rounded-full bg-[#1d4ed8] flex items-center justify-center shrink-0 text-xs font-bold">
+                {initiales}
               </div>
-              <button onClick={handleLogout} className="p-1 rounded hover:bg-white/10 text-white/50 hover:text-red-400">
-                <LogOut style={{ width: 14, height: 14 }} />
+
+              <div className="flex-1 overflow-hidden">
+                <p className="text-xs font-semibold text-white/90 leading-none truncate">
+                  {nomComplet}
+                </p>
+
+                <p className="text-[10px] text-white/50 mt-0.5">
+                  {roleLabel}
+                </p>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="p-1 rounded hover:bg-white/10 text-white/50 hover:text-red-400"
+              >
+                <LogOut
+                  style={{
+                    width: 14,
+                    height: 14,
+                  }}
+                />
               </button>
             </div>
           </aside>
         </div>
       )}
 
-      {/* Contenu principal */}
+      {/* ===================================================
+          CONTENU PRINCIPAL
+      =================================================== */}
+
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+
+        {/* Header */}
         <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-3 shrink-0 shadow-sm">
-          <button onClick={() => setMobileOpen(true)} className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
-            <Menu style={{ width: 18, height: 18 }} />
+
+          {/* Menu mobile */}
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+          >
+            <Menu
+              style={{
+                width: 18,
+                height: 18,
+              }}
+            />
           </button>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="hidden md:block p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
-            <Menu style={{ width: 18, height: 18 }} />
+
+          {/* Menu desktop */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="hidden md:block p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+          >
+            <Menu
+              style={{
+                width: 18,
+                height: 18,
+              }}
+            />
           </button>
 
           <div className="flex-1" />
 
+          {/* Localisation */}
           <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm text-gray-700 transition-colors">
             <MapPin className="w-3.5 h-3.5 text-gray-400" />
-            <span className="hidden sm:inline">Sahal Tech Innovation Labs</span>
+
+            <span className="hidden sm:inline">
+              Sahal Tech Innovation Labs
+            </span>
+
             <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
           </button>
 
+          {/* Date */}
           <span className="text-xs sm:text-sm text-gray-500 border border-gray-200 rounded-lg px-2 sm:px-3 py-1.5">
             {dateStr}
           </span>
 
+          {/* Avatar / déconnexion */}
           <div
             onClick={handleLogout}
             title="Déconnexion"
@@ -193,6 +446,7 @@ export default function Layout({ children }) {
           </div>
         </header>
 
+        {/* Contenu des pages */}
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>
