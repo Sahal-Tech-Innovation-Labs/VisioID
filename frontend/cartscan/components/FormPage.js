@@ -285,25 +285,25 @@ export default function FormPage() {
           <div className="mb-8 flex flex-wrap gap-6">
             {photo && (
               <div className="flex flex-col items-center">
-                <span className="block text-sm font-medium text-gray-700 mb-2 self-start">
+                <span className="block text-sm font-medium text-gray-900 mb-2 self-start">
                   Pièce scannée
                 </span>
                 <img
                   src={photo}
                   alt="Aperçu de la pièce scannée"
-                  className="max-h-64 w-auto rounded-lg border border-gray-200 shadow-sm object-contain bg-gray-50"
+                  className="max-h-64 w-auto rounded-lg border border-gray-900 shadow-sm object-contain bg-gray-50"
                 />
               </div>
             )}
             {formData.photoProfil && (
               <div className="flex flex-col items-center">
-                <span className="block text-sm font-medium text-gray-700 mb-2 self-start">
+                <span className="block text-sm font-medium text-gray-900 mb-2 self-start">
                   Photo profil
                 </span>
                 <img
                   src={formData.photoProfil}
                   alt="Photo de la personne"
-                  className="max-h-64 w-auto rounded-lg border border-gray-200 shadow-sm object-contain bg-gray-50"
+                  className="max-h-64 w-auto rounded-lg border border-gray-900 shadow-sm object-contain bg-gray-50"
                 />
               </div>
             )}
@@ -318,16 +318,18 @@ export default function FormPage() {
                 {field.label}
               </label>
               <input
-                type="text"
-                name={field.name}
-                value={formData[field.name]}
-                onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none
-                  ${formData[field.name]
-                    ? "border-blue-900 bg-white"
-                    : "border-orange-400 bg-gray-100"
-                  }`}
-              />
+  type="text"
+  name={field.name}
+  value={formData[field.name]}
+  onChange={handleChange}
+  style={{ color: "black", WebkitTextFillColor: "black" }}
+  className={`w-full px-4 py-3 border rounded-lg
+    focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none
+    ${formData[field.name]
+      ? "border-blue-900 bg-white"
+      : "border-orange-400 bg-gray-100"
+    }`}
+/>
             </div>
           ))}
 
@@ -339,14 +341,14 @@ export default function FormPage() {
               type="text"
               value={formData.dateEnreg}
               readOnly
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 outline-none cursor-not-allowed"
+              className="w-full px-4 py-3 border border-gray-900 rounded-lg bg-gray-50 text-gray-500 outline-none cursor-not-allowed"
             />
           </div>
 
         </div>
 
         <div className="mb-8">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-900 mb-2">
             Motif de visite
           </label>
           <div className="flex gap-3">
@@ -356,7 +358,7 @@ export default function FormPage() {
                 onChange={(e) => setMotifVisite(e.target.value)}
                 placeholder="Saisir le motif de visite..."
                 rows={4}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none resize-none"
+                className="w-full px-4 py-3 border border-gray-900 rounded-lg focus:ring-2 focus:ring-blue-900 focus:border-transparent outline-none resize-none"
               />
               {isListening && (
                 <p className="text-sm text-red-500 italic mt-1 min-h-[1.25rem]">
@@ -364,7 +366,7 @@ export default function FormPage() {
                 </p>
               )}
               {isTranscribing && (
-                <p className="text-sm text-gray-400 italic mt-1 min-h-[1.25rem]">
+                <p className="text-sm text-gray-900 italic mt-1 min-h-[1.25rem]">
                   ⏳ Transcription en cours...
                 </p>
               )}

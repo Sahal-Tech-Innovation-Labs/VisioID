@@ -80,27 +80,31 @@ export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
+   
   /* =======================================================
      Récupération de l'utilisateur connecté
   ======================================================= */
 
   useEffect(() => {
+  const loadUser = () => {
     const stored = localStorage.getItem("user");
-
     if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch (error) {
-        console.error(
-          "Impossible de lire les informations utilisateur :",
-          error
-        );
-
-        localStorage.removeItem("user");
-      }
+      setUser(JSON.parse(stored));
+    } else {
+      setUser(null);
     }
-  }, []);
+  };
+
+  loadUser();
+
+  window.addEventListener("userUpdated", loadUser);
+
+  return () => {
+    window.removeEventListener("userUpdated", loadUser);
+  };
+}, []);
 
   /* =======================================================
      Fermer le menu mobile lors du changement de page
@@ -110,6 +114,10 @@ export default function Layout({ children }) {
     setMobileOpen(false);
   }, [pathname]);
 
+
+  if (pathname === "/login") {
+  return children;
+}
   /* =======================================================
      Déconnexion
   ======================================================= */
@@ -437,13 +445,43 @@ export default function Layout({ children }) {
           </span>
 
           {/* Avatar / déconnexion */}
-          <div
-            onClick={handleLogout}
-            title="Déconnexion"
-            className="w-8 h-8 rounded-full bg-[#1d4ed8] flex items-center justify-center text-white text-xs font-bold cursor-pointer hover:bg-red-600 transition-colors"
-          >
-            {initiales}
-          </div>
+         <div className="relative">
+  {/* Avatar */}
+  <button
+    onClick={() => setProfileOpen(!profileOpen)}
+    title={nomComplet}
+    className="w-8 h-8 rounded-full bg-[#1d4ed8] flex items-center justify-center text-white text-xs font-bold cursor-pointer hover:opacity-90 transition-opacity"
+  >
+    {initiales}
+  </button>
+
+  {/* Menu profil */}
+  {profileOpen && (
+    <div className="absolute right-0 top-10 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
+      
+      <div className="px-4 py-3 border-b border-gray-100">
+        <p className="text-sm font-semibold text-gray-800 truncate">
+          {nomComplet}
+        </p>
+        <p className="text-xs text-gray-500 mt-1">
+          {roleLabel}
+        </p>
+      </div>
+
+      <button
+        onClick={() => {
+          setProfileOpen(false);
+          handleLogout();
+        }}
+        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+      >
+        <LogOut style={{ width: 16, height: 16 }} />
+        <span>Déconnexion</span>
+      </button>
+
+    </div>
+  )}
+</div>
         </header>
 
         {/* Contenu des pages */}

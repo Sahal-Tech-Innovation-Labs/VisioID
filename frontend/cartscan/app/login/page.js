@@ -30,10 +30,13 @@ const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, { 
 
       // Stocker le token dans localStorage ET cookie (pour le middleware)
       localStorage.setItem("token", result.token);
-      localStorage.setItem("user", JSON.stringify(result.user));
-      document.cookie = `token=${result.token}; path=/; max-age=${12 * 3600}`;
+localStorage.setItem("user", JSON.stringify(result.user));
 
-      router.push("/dashboard");
+document.cookie = `token=${result.token}; path=/; max-age=${12 * 3600}`;
+
+window.dispatchEvent(new Event("userUpdated"));
+
+router.push("/dashboard");
     } catch (err) {
       setError("Impossible de contacter le serveur.");
     } finally {
@@ -66,7 +69,7 @@ const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, { 
               onChange={(e) => setForm({ ...form, login: e.target.value })}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
               placeholder="Votre identifiant"
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#1d4ed8] focus:border-transparent outline-none"
+              className="w-full px-4 py-3 border border-gray-900 rounded-lg text-base text-gray-900 focus:ring-2 focus:ring-[#1d4ed8] focus:border-transparent outline-none"
             />
           </div>
           <div>
@@ -79,7 +82,7 @@ const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, { 
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
               placeholder="••••••••"
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#1d4ed8] focus:border-transparent outline-none"
+              className="w-full px-4 py-3 border border-gray-900 rounded-lg text-base text-gray-900 focus:ring-2 focus:ring-[#1d4ed8] focus:border-transparent outline-none"
             />
           </div>
 
