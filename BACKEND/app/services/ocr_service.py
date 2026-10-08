@@ -22,6 +22,7 @@ TEMP_FOLDER = "temp_images"
 os.makedirs(TEMP_FOLDER, exist_ok=True)
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 _FACE_CASCADE = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
@@ -196,7 +197,7 @@ def extraire_cni_regex(texte):
 def extraire_avec_ia(texte_brut):
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=GROQ_MODEL,
             messages=[
                 {
                     "role": "user",
