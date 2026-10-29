@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/api";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, ShieldCheck, User, X } from "lucide-react";
@@ -11,6 +12,11 @@ export default function AdminUsersPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  const [currentUserId] = useState(() => {
+    if (typeof window === "undefined") return null;
+    return JSON.parse(localStorage.getItem("user") || "{}").id ?? null;
+  });
+
   const [form, setForm] = useState({
     nom: "", prenom: "", login: "", password: "", role: "vigile",
   });
@@ -19,9 +25,8 @@ export default function AdminUsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/users`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
+        const response = await apiFetch("/auth/users");
+
       const result = await response.json();
       if (result.success) setUsers(result.data);
     } catch (err) {
@@ -30,32 +35,35 @@ export default function AdminUsersPage() {
       setLoading(false);
     }
   };
+  useEffect(() => {
+    const loadUsers = async () => {
+      await fetchUsers();
+    };
+    void loadUsers();
+  }, []);
 
-  useEffect(() => { fetchUsers(); }, []);
-
-  const handleCreate = async () => {
+    const handleCreate = async () => {
     if (!form.nom || !form.prenom || !form.login || !form.password) {
       setError("Tous les champs sont obligatoires.");
       return;
     }
-    if (form.password.length < 4) {
-      setError("Le mot de passe doit faire au moins 4 caractères.");
+    if (form.password.length < 8) {
+      setError("Le mot de passe doit faire au moins 8 caractères.");
       return;
     }
     setSubmitting(true);
     setError("");
     try {
-const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/users`, {
-          method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
-        },
+      const response = await apiFetch("/auth/users", {
+        method: "POST",
         body: JSON.stringify(form),
       });
       const result = await response.json();
       if (!response.ok) {
-        setError(result.detail || "Erreur lors de la création.");
+        const message = Array.isArray(result.detail)
+          ? result.detail.map((e) => e.msg).join(" — ")
+          : result.detail || "Erreur lors de la création.";
+        setError(message);
         return;
       }
       setForm({ nom: "", prenom: "", login: "", password: "", role: "vigile" });
@@ -71,9 +79,9 @@ const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/users`, {
   const handleDelete = async (id, login) => {
     if (!confirm(`Supprimer le compte "${login}" ?`)) return;
     try {
-const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/users/${id}`, {
+const response = await apiFetch(`/auth/users/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${getToken()}` },
+
       });
       const result = await response.json();
       if (!response.ok) {
@@ -135,13 +143,17 @@ const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/users/${id
                   {u.role === "admin" ? <ShieldCheck className="w-3 h-3" /> : <User className="w-3 h-3" />}
                   {u.role === "admin" ? "Admin" : "Vigile"}
                 </span>
-                <button
-                  onClick={() => handleDelete(u.id, u.login)}
-                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Supprimer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+
+                                {u.id !== currentUserId && (
+                  <button
+                    onClick={() => handleDelete(u.id, u.login)}
+                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Supprimer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+
               </div>
             </div>
           ))}

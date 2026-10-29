@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/api";
 import { Suspense } from "react";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -10,6 +11,7 @@ import {
 function ListPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [canDelete, setCanDelete] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,28 +24,35 @@ function ListPageContent() {
   const [historique, setHistorique] = useState(null);
 const [loadingHistorique, setLoadingHistorique] = useState(false);
 
+useEffect(() => {
+  Promise.resolve().then(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    setCanDelete(user.role === "admin" || user.role === "super_admin");
+  });
+}, []);
+
   useEffect(() => {
     const urlFilter = searchParams.get("filter");
-    const fetchDocuments = async () => {
+          const fetchDocuments = async () => {
       try {
-        const API = process.env.NEXT_PUBLIC_API_URL;
-let url = `${API}/documents/`;
-if (urlFilter === "expires") url = `${API}/documents/expires`;
-if (urlFilter === "cni") url = `${API}/documents/type/cni`;
-if (urlFilter === "passeport") url = `${API}/documents/type/passeport`;
-        const response = await fetch(url);
+        const url = urlFilter === "expires" ? "/documents/expires" : "/documents/";
+        const response = await apiFetch(url);
         const result = await response.json();
-        if (result.success) setDocuments(result.data);
+        if (result.success) {
+          let data = result.data;
+          if (urlFilter === "cni") data = data.filter((d) => d.type_doc === "CNI");
+          if (urlFilter === "passeport") data = data.filter((d) => d.type_doc === "PASSEPORT");
+          setDocuments(data);
+        }
       } catch (err) {
         console.error("Erreur chargement documents:", err);
       } finally {
         setLoading(false);
       }
     };
-
     
     fetchDocuments();
-  }, []);
+  }, [searchParams]);
 
   const filtered = documents.filter((d) => {
     const q = searchQuery.toLowerCase();
@@ -171,9 +180,8 @@ if (urlFilter === "passeport") url = `${API}/documents/type/passeport`;
   const handleVoirHistorique = async (numero_doc) => {
   setLoadingHistorique(true);
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/historique/${numero_doc}`, {
-      method: "GET",
-    });
+     const response = await apiFetch(`/documents/historique/${numero_doc}`);
+
     const result = await response.json();
     if (result.success) setHistorique(result.data);
   } catch (err) {
@@ -186,7 +194,7 @@ if (urlFilter === "passeport") url = `${API}/documents/type/passeport`;
   const handleDelete = async (id) => {
     if (!confirm("Voulez-vous vraiment supprimer ce document ?")) return;
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/${id}`, { method: "DELETE" });
+      const response = await apiFetch(`/documents/${id}`, { method: "DELETE" });
       const result = await response.json();
       if (result.success) setDocuments(documents.filter((doc) => doc.id !== id));
     } catch (err) {
@@ -205,7 +213,7 @@ if (urlFilter === "passeport") url = `${API}/documents/type/passeport`;
   const handleMarquerSortie = async (doc) => {
     setMarquantSortie(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/${doc.id}/sortie`, { method: "PUT" });
+      const response = await apiFetch(`/documents/${doc.id}/sortie`, { method: "PUT" });
       const result = await response.json();
       if (!response.ok) { alert(result.detail || "Erreur."); return; }
       const updated = { ...doc, heure_sortie: result.heure_sortie };
@@ -312,8 +320,13 @@ if (urlFilter === "passeport") url = `${API}/documents/type/passeport`;
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 justify-end">
-                      <button onClick={() => handleEdit(doc)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg" title="Éditer"><Pencil className="w-4 h-4" /></button>
-                      <button onClick={() => handleDelete(doc.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="Supprimer"><Trash2 className="w-4 h-4" /></button>
+                      {canDelete && (
+                        <button onClick={() => handleEdit(doc)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg" title="Éditer"><Pencil className="w-4 h-4" /></button>
+                      )}
+
+                      {canDelete && (
+                        <button onClick={() => handleDelete(doc.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="Supprimer"><Trash2 className="w-4 h-4" /></button>
+                      )}
                     </div>
                   </td>
                 </tr>

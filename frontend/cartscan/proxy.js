@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
 
+// Pages accessibles sans être connecté
+const PUBLIC_PATHS = ["/login", "/register", "/verify-email", "/resend-verification"];
 export function proxy(request) {
   const token = request.cookies.get("token")?.value ||
     request.headers.get("authorization")?.replace("Bearer ", "");
 
-  const isLoginPage = request.nextUrl.pathname === "/login";
+  const { pathname } = request.nextUrl;
+  const isPublic = PUBLIC_PATHS.includes(pathname);
 
-  // Si pas de token et pas sur la page login → redirect vers login
-  if (!token && !isLoginPage) {
+  // Pas de token et page protégée → redirection vers la connexion
+  if (!token && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Si token présent et sur la page login → redirect vers dashboard
-  if (token && isLoginPage) {
+  // Token présent et sur la page de connexion → redirection vers le tableau de bord
+  if (token && pathname === "/login") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
@@ -20,5 +23,7 @@ export function proxy(request) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|images/).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icons/|images/).*)",
+  ],
 };

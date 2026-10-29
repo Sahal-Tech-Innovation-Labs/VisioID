@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/api";
 import { useState, useEffect } from "react";
 import { FileText, CreditCard, IdCard, AlertCircle, ArrowLeft } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from "recharts";
@@ -14,40 +15,41 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("month");
   
-useEffect(() => {
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  if (user.role !== "admin") {
-    router.push("/");
-  }
-}, []);
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (user.role !== "admin" && user.role !== "super_admin") {
+      router.push("/");
+    }
+  }, [router]);
 
   useEffect(() => {
-    fetchStats();
-    fetchMonthlyData();
+    let active = true;
+
+    const loadData = async () => {
+      try {
+        const statsResponse = await apiFetch("/documents/stats");
+        const statsResult = await statsResponse.json();
+        if (active && statsResult.success) setStats(statsResult.data);
+      } catch (err) {
+        console.error("Erreur stats:", err);
+      }
+
+      try {
+        const monthlyResponse = await apiFetch(`/documents/stats/evolution?period=${period}`);
+        const monthlyResult = await monthlyResponse.json();
+        if (active && monthlyResult.success) setMonthlyData(monthlyResult.data);
+      } catch (err) {
+        console.error("Erreur evolution:", err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    void loadData();
+    return () => {
+      active = false;
+    };
   }, [period]);
-
-  const fetchStats = async () => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/stats`, {
-        method: "GET",
-      });
-      const result = await response.json();
-      if (result.success) setStats(result.data);
-    } catch (err) {
-      console.error("Erreur stats:", err);
-    }
-  };
-
-  const fetchMonthlyData = async () => {
-    try {
-const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/stats/evolution?period=${period}`);      const result = await response.json();
-      if (result.success) setMonthlyData(result.data);
-    } catch (err) {
-      console.error("Erreur evolution:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
  const statsCards = [
   { title: "Total Documents", value: stats.total, icon: FileText, color: "bg-blue-900", filter: "tous" },
@@ -115,7 +117,7 @@ const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/stats
           onChange={(e) => setPeriod(e.target.value)}
           className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-900 outline-none"
         >
-          <option value="day">Par heure (aujourd'hui)</option>
+          <option value="day">Par heure (aujourd&apos;hui)</option>
           <option value="month">Par jour (ce mois)</option>
           <option value="year">Par mois (cette année)</option>
         </select>

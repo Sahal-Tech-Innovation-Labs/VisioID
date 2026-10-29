@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import PwaRegister from "./PwaRegister";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
   X,
   LogOut,
   ShieldCheck,
+  Building2,
 } from "lucide-react";
 
 const navItems = [
@@ -111,13 +113,13 @@ export default function Layout({ children }) {
   ======================================================= */
 
   useEffect(() => {
-    setMobileOpen(false);
+    Promise.resolve().then(() => setMobileOpen(false));
   }, [pathname]);
 
 
-  if (pathname === "/login") {
-  return children;
-}
+    if (["/login", "/register", "/verify-email", "/resend-verification"].includes(pathname)) {
+    return children;
+  }
   /* =======================================================
      Déconnexion
   ======================================================= */
@@ -135,7 +137,17 @@ export default function Layout({ children }) {
      Informations utilisateur
   ======================================================= */
 
-  const isAdmin = user?.role === "admin";
+    const isAdmin = user?.role === "admin" || user?.role === "super_admin";
+  const entrepriseItems =
+    user?.role === "super_admin"
+      ? [
+          {
+            icon: Building2,
+            label: "Entreprises",
+            path: "/admin/entreprises",
+          },
+        ]
+      : [];
 
   const now = new Date();
 
@@ -153,7 +165,12 @@ export default function Layout({ children }) {
     ? `${user.prenom || ""} ${user.nom || ""}`.trim()
     : "Chargement...";
 
-  const roleLabel = isAdmin ? "Administrateur" : "";
+     const roleLabel =
+    user?.role === "super_admin"
+      ? "Super administrateur"
+      : isAdmin
+      ? "Administrateur"
+      : "";
 
   /* =======================================================
      Navigation selon le rôle
@@ -181,6 +198,7 @@ export default function Layout({ children }) {
           },
         ]
       : []),
+      ...entrepriseItems,
   ];
 
   /* =======================================================
@@ -202,19 +220,20 @@ export default function Layout({ children }) {
       >
         {/* Logo */}
         <div className="flex items-center gap-2 px-3 py-4 border-b border-white/10">
-          <div className="relative w-10 h-8 shrink-0">
+         <div className="relative w-8 h-8 shrink-0 rounded-lg overflow-hidden">
             <Image
-              src="/images/sahal.jpeg"
-              alt="Logo Sahal Tech"
+              src="/icons/icon-192.png"
+              alt="Logo CNIScan"
               fill
-              className="object-contain"
+              sizes="32px"
+              className="object-cover"
             />
           </div>
 
           {sidebarOpen && (
             <div className="overflow-hidden">
-              <p className="text-xs font-bold tracking-widest text-white/90 uppercase leading-none">
-                CNI SCAN
+              <p className="text-xs font-bold tracking-wide text-white/90 leading-none">
+                CNIScan
               </p>
 
               <p className="text-[10px] text-white/50 mt-0.5">
@@ -288,18 +307,19 @@ export default function Layout({ children }) {
             {/* Header mobile */}
             <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
               <div className="flex items-center gap-2">
-                <div className="relative w-10 h-8 shrink-0">
+               <div className="relative w-8 h-8 shrink-0 rounded-lg overflow-hidden">
                   <Image
-                    src="/images/sahal.jpeg"
-                    alt="Logo Sahal Tech"
+                    src="/icons/icon-192.png"
+                    alt="Logo CNIScan"
                     fill
-                    className="object-contain"
+                    sizes="32px"
+                    className="object-cover"
                   />
                 </div>
 
                 <div>
-                  <p className="text-xs font-bold tracking-widest text-white/90 uppercase leading-none">
-                    CNI SCAN
+                  <p className="text-xs font-bold tracking-wide text-white/90 leading-none">
+                    CNIScan
                   </p>
 
                   <p className="text-[10px] text-white/50 mt-0.5">
@@ -429,15 +449,15 @@ export default function Layout({ children }) {
           <div className="flex-1" />
 
           {/* Localisation */}
-          <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm text-gray-700 transition-colors">
-            <MapPin className="w-3.5 h-3.5 text-gray-400" />
+          {user?.entreprise_nom && (
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-700">
+              <Building2 className="w-3.5 h-3.5 text-gray-400" />
+              <span className="max-w-[200px] truncate">{user.entreprise_nom}</span>
+            </div>
+          )}
 
-            <span className="hidden sm:inline">
-              Sahal Tech Innovation Labs
-            </span>
-
-            <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
-          </button>
+          {/* Installer l'application (PWA) */}
+          <PwaRegister />
 
           {/* Date */}
           <span className="text-xs sm:text-sm text-gray-500 border border-gray-200 rounded-lg px-2 sm:px-3 py-1.5">

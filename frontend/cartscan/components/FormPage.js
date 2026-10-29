@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/api";
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Mic, MicOff } from "lucide-react";
 import Link from "next/link";
@@ -37,51 +38,61 @@ export default function FormPage() {
   const streamRef = useRef(null);
 
   useEffect(() => {
-    // Aperçu de la pièce scannée (récupéré côté client uniquement)
-    const storedPhoto = sessionStorage.getItem("photoPreview");
-    if (storedPhoto) setPhoto(storedPhoto);
+    let active = true;
+    const restoreForm = async () => {
+      await Promise.resolve();
+      if (!active) return;
 
-    const editData = sessionStorage.getItem("editDocument");
-    if (editData) {
-      const doc = JSON.parse(editData);
-      setEditId(doc.id);
-      setFormData((prev) => ({
-        ...prev,
-        nom:           doc.nom || "",
-        prenom:        doc.prenom || "",
-        numDoc:        doc.numero_doc || "",
-        nationalite:   doc.nationalite || "",
-        dateNaissance: doc.date_naissance || "",
-        lieuNaissance: doc.lieu_naissance || "",
-        sexe:          doc.sexe || "",
-        profession:    doc.profession || "",
-        dateExpire:    doc.date_expiration || "",
-        dateEnreg:     doc.date_enreg || "",
-        typeDoc: doc.type_doc || "",
-        photoProfil: doc.photo_profil || "",
-      }));
-      sessionStorage.removeItem("editDocument");
-      return;
-    }
+      const storedPhoto = sessionStorage.getItem("photoPreview");
+      if (storedPhoto) setPhoto(storedPhoto);
 
-    const extractData = sessionStorage.getItem("extractedData");
-    if (extractData) {
-      const parsed = JSON.parse(extractData);
-      setFormData((prev) => ({
-        ...prev,
-        nom:           parsed.nom || "",
-        prenom:        parsed.prenom || "",
-        numDoc:        parsed.numero_doc || "",
-        nationalite:   parsed.nationalite || "",
-        dateNaissance: parsed.date_naissance || "",
-        lieuNaissance: parsed.lieu_naissance || "",
-        sexe:          parsed.sexe || "",
-        profession:    parsed.profession || "",
-        dateExpire:    parsed.date_expiration || "",
-        typeDoc: parsed.type_doc || "",
-        photoProfil: parsed.photo_profil || "",
-      }));
-    }
+      const editData = sessionStorage.getItem("editDocument");
+      if (editData) {
+        const doc = JSON.parse(editData);
+        setEditId(doc.id);
+        setFormData((prev) => ({
+          ...prev,
+          nom:           doc.nom || "",
+          prenom:        doc.prenom || "",
+          numDoc:        doc.numero_doc || "",
+          nationalite:   doc.nationalite || "",
+          dateNaissance: doc.date_naissance || "",
+          lieuNaissance: doc.lieu_naissance || "",
+          sexe:          doc.sexe || "",
+          profession:    doc.profession || "",
+          dateExpire:    doc.date_expiration || "",
+          dateEnreg:     doc.date_enreg || "",
+          typeDoc: doc.type_doc || "",
+          photoProfil: doc.photo_profil || "",
+        }));
+        sessionStorage.removeItem("editDocument");
+        return;
+      }
+
+      const extractData = sessionStorage.getItem("extractedData");
+      if (extractData) {
+        const parsed = JSON.parse(extractData);
+        setFormData((prev) => ({
+          ...prev,
+          nom:           parsed.nom || "",
+          prenom:        parsed.prenom || "",
+          numDoc:        parsed.numero_doc || "",
+          nationalite:   parsed.nationalite || "",
+          dateNaissance: parsed.date_naissance || "",
+          lieuNaissance: parsed.lieu_naissance || "",
+          sexe:          parsed.sexe || "",
+          profession:    parsed.profession || "",
+          dateExpire:    parsed.date_expiration || "",
+          typeDoc: parsed.type_doc || "",
+          photoProfil: parsed.photo_profil || "",
+        }));
+      }
+    };
+
+    void restoreForm();
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Coupe le micro si l'utilisateur quitte la page en cours d'enregistrement
@@ -130,7 +141,7 @@ export default function FormPage() {
           const fd = new FormData();
           fd.append("file", audioBlob, "motif.webm");
 
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/extract/transcribe`, {
+          const response = await apiFetch("/extract/transcribe", {
             method: "POST",
             body: fd,
           });
@@ -191,15 +202,11 @@ export default function FormPage() {
     setSaveStatus(null);
 
     try {
-      const url = editId
-        ? `${process.env.NEXT_PUBLIC_API_URL}/documents/${editId}`
-        : `${process.env.NEXT_PUBLIC_API_URL}/documents/`;
-
+      const url = editId ? `/documents/${editId}` : "/documents/";
       const method = editId ? "PUT" : "POST";
 
-      const response = await fetch(url, {
+      const response = await apiFetch(url, {
         method: method,
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nom:             formData.nom,
           prenom:          formData.prenom,
@@ -215,7 +222,6 @@ export default function FormPage() {
           type_doc:        formData.typeDoc || "",
           photo_profil:    formData.photoProfil || null,
           date_enreg:      formData.dateEnreg,
-          agent_login: JSON.parse(localStorage.getItem("user") || "{}").login || null,
         }),
       });
 

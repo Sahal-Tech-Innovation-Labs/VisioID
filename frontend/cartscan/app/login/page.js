@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-
+import Link from "next/link";
 export default function LoginPage() {
   const router = useRouter();
   const [form, setForm] = useState({ login: "", password: "" });
@@ -23,8 +23,10 @@ const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, { 
       });
       const result = await response.json();
 
-      if (!response.ok) {
-        setError(result.detail || "Erreur de connexion.");
+            if (!response.ok) {
+        setError(
+          typeof result.detail === "string" ? result.detail : "Identifiants invalides."
+        );
         return;
       }
 
@@ -32,7 +34,7 @@ const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, { 
       localStorage.setItem("token", result.token);
 localStorage.setItem("user", JSON.stringify(result.user));
 
-document.cookie = `token=${result.token}; path=/; max-age=${12 * 3600}`;
+document.cookie = `token=${encodeURIComponent(result.token)}; path=/; max-age=${12 * 3600}; SameSite=Strict`;
 
 window.dispatchEvent(new Event("userUpdated"));
 
@@ -49,11 +51,19 @@ router.push("/dashboard");
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8">
 
         {/* Logo */}
+               {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="relative w-32 h-16 mb-4">
-            <Image src="/images/sahal.jpeg" alt="Sahal Tech" fill className="object-contain" />
+          <div className="relative w-20 h-20 mb-4 rounded-2xl overflow-hidden shadow-md">
+            <Image
+              src="/icons/icon-192.png"
+              alt="CNIScan"
+              fill
+              sizes="80px"
+              priority
+              className="object-cover"
+            />
           </div>
-          <h1 className="text-xl font-bold text-[#0f1e3d]">CniScan</h1>
+          <h1 className="text-xl font-bold text-[#0f1e3d]">CNIScan</h1>
           <p className="text-xs text-gray-400 mt-0.5">Système de gestion des visiteurs</p>
         </div>
 
@@ -89,6 +99,11 @@ router.push("/dashboard");
           {error && (
             <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
           )}
+                    {error.includes("non vérifié") && (
+            <Link href="/resend-verification" className="block text-center text-sm text-[#1d4ed8] font-semibold hover:underline">
+              Renvoyer l&apos;email de vérification
+            </Link>
+          )}
 
           <button
             onClick={handleSubmit}
@@ -97,10 +112,16 @@ router.push("/dashboard");
           >
             {loading ? "Connexion..." : "Se connecter"}
           </button>
+                    <p className="text-center text-sm text-gray-500 pt-2">
+            Pas encore de compte ?{" "}
+            <Link href="/register" className="text-[#1d4ed8] font-semibold hover:underline">
+              Inscrire mon entreprise
+            </Link>
+          </p>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
-          Sahal Tech Innovation Labs © {new Date().getFullYear()}
+                <p className="text-center text-xs text-gray-400 mt-6">
+          Sahal Tech Innovation Labs · © {new Date().getFullYear()}
         </p>
       </div>
     </div>

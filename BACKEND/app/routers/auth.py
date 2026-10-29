@@ -123,7 +123,7 @@ def login(data: LoginSchema, request: Request):
     conn = get_connection()
     cursor = get_cursor(conn)
     cursor.execute("""
-        SELECT u.*, e.statut as entreprise_statut
+        SELECT u.*, e.statut as entreprise_statut, e.nom as entreprise_nom
         FROM users u
         JOIN entreprises e ON e.id = u.entreprise_id
         WHERE u.login = %s
@@ -169,6 +169,8 @@ def login(data: LoginSchema, request: Request):
             "login":         user["login"],
             "role":          user["role"],
             "entreprise_id": user["entreprise_id"],
+            "entreprise_nom": user["entreprise_nom"],
+            "entreprise_statut": user["entreprise_statut"],
         }
     }
 

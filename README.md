@@ -184,6 +184,7 @@ VisioID/
 └── frontend/cartscan/
     ├── Dockerfile
     ├── package.json
+    ├── proxy.js
     ├── app/
     │   ├── page.js
     │   ├── login/page.js
@@ -192,9 +193,10 @@ VisioID/
     │   └── dashboard/page.js
     ├── components/
     │   ├── CapturePage.js
+    │   ├── DashboardPage.js
     │   ├── FormPage.js
-    │   ├── ListPage.js
-    │   └── DashboardPage.js
+    │   ├── layout.js
+    │   └── ListPage.js
     └── .env.local (local)
 ```
 
@@ -234,20 +236,31 @@ Un compte admin est créé automatiquement si aucun utilisateur n'existe :
 ```
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
-pytesseract==0.3.13
-Pillow==10.4.0
-opencv-python==4.10.0.84
 python-multipart==0.0.9
 pydantic==2.8.2
+python-dotenv==1.0.1
+Pillow==10.4.0
+pytesseract==0.3.13
+opencv-python==4.10.0.84
+numpy==1.26.4
+groq==0.28.0
+psycopg2-binary==2.9.12
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+httpx==0.27.2
 ```
 
 ### Frontend
 ```
-next.js 16+
-react 18+
-tailwindcss 4+
-lucide-react
-recharts
+next==16.2.6
+react==19.2.4
+react-dom==19.2.4
+tailwindcss==4
+lucide-react==1.14.0
+recharts==3.8.1
+exceljs==4.4.0
+xlsx==0.18.5
 ```
 
 ---

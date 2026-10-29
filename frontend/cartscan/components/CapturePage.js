@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/api";
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Upload, RotateCcw, Mic, ScanLine, X } from "lucide-react";
@@ -32,7 +33,7 @@ export default function CapturePage() {
       const formData = new FormData();
       formData.append("file", file);
 
-     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/extract/scan`, {
+     const response = await apiFetch("/extract/scan", {
         method: "POST",
         body: formData,
       });

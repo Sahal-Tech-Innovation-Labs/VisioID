@@ -53,6 +53,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+!frontend/cartscan/lib/
+!frontend/cartscan/lib/**
 lib64/
 parts/
 sdist/
