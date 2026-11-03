@@ -91,6 +91,28 @@ def init_db():
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_entreprise ON users(entreprise_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_extractions_entreprise ON extractions(entreprise_id)")
+    # --- Colonnes d'inscription et de vérification email ---
+    cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT")
+    cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verifie BOOLEAN NOT NULL DEFAULT TRUE")
+    cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS token_verification TEXT")
+    cursor.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS token_expiration TIMESTAMPTZ")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_token_verification ON users(token_verification)")
+
+    # --- Row-Level Security sur extractions ---
+    cursor.execute("ALTER TABLE extractions ENABLE ROW LEVEL SECURITY")
+    cursor.execute("ALTER TABLE extractions FORCE ROW LEVEL SECURITY")
+    cursor.execute("DROP POLICY IF EXISTS tenant_isolation_extractions ON extractions")
+    cursor.execute("""
+        CREATE POLICY tenant_isolation_extractions ON extractions
+        USING (
+            entreprise_id = NULLIF(current_setting('app.entreprise_id', true), '')::integer
+            OR current_setting('app.role', true) = 'super_admin'
+        )
+        WITH CHECK (
+            entreprise_id = NULLIF(current_setting('app.entreprise_id', true), '')::integer
+            OR current_setting('app.role', true) = 'super_admin'
+        )
+    """)
 
     # Entreprise plateforme + premier super_admin : uniquement si aucune entreprise n'existe encore
     cursor.execute("SELECT COUNT(*) as total FROM entreprises")
