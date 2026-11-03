@@ -16,8 +16,15 @@ if platform.system() == "Windows":
     os.environ["TESSDATA_PREFIX"] = r"C:\Program Files\Tesseract-OCR\tessdata"
 else:
     pytesseract.pytesseract.tesseract_cmd = shutil.which("tesseract") or "/usr/bin/tesseract"
-    os.environ.setdefault("TESSDATA_PREFIX", "/usr/share/tesseract-ocr/4.00/tessdata")
-
+    # On ne force un chemin que s'il existe réellement (il varie selon la version)
+    for _candidate in (
+        "/usr/share/tesseract-ocr/5/tessdata",
+        "/usr/share/tesseract-ocr/4.00/tessdata",
+        "/usr/share/tessdata",
+    ):
+        if os.path.isdir(_candidate):
+            os.environ.setdefault("TESSDATA_PREFIX", _candidate)
+            break
 TEMP_FOLDER = "temp_images"
 os.makedirs(TEMP_FOLDER, exist_ok=True)
 
