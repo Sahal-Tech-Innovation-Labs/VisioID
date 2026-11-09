@@ -1,8 +1,48 @@
 "use client";
-import { apiFetch } from "@/lib/api";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Upload, RotateCcw, Mic, ScanLine, X } from "lucide-react";
+import { Camera, Upload, RotateCcw, Mic, ScanLine } from "lucide-react";
+import { apiFetch } from "@/lib/api";
+
+const MAX_SEND_BYTES = 3 * 1024 * 1024; // en dessous : photo envoyée sans modification
+const MAX_DIM = 3000;                    // grand côté maximal pour les photos plus lourdes
+
+// Prépare la photo avant l'envoi :
+// - JPEG/PNG légers : envoyés tels quels
+// - photos lourdes : réduites à 3000 px (qualité 0,9) pour rester sous la limite du serveur
+// - HEIC : converti en JPEG si le navigateur sait le lire, sinon message clair
+const prepareImage = async (file) => {
+  const heic = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+  const standard = ["image/jpeg", "image/png"].includes(file.type);
+
+  if (!standard && !heic) {
+    return { error: "Format non supporté. Utilisez JPEG ou PNG." };
+  }
+  if (standard && file.size <= MAX_SEND_BYTES) {
+    return { file };
+  }
+
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, MAX_DIM / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+    if (!blob) throw new Error("encodage impossible");
+    return { file: new File([blob], "scan.jpg", { type: "image/jpeg" }) };
+  } catch {
+    if (heic) {
+      return {
+        error:
+          "Ce format de photo (HEIC) n'est pas lisible par ce navigateur. Dans les réglages de l'appareil photo, choisissez JPEG ou « Le plus compatible ».",
+      };
+    }
+    return { file }; // image standard : on envoie l'original, le serveur tranchera
+  }
+};
 
 export default function CapturePage() {
   const router = useRouter();
@@ -17,23 +57,28 @@ export default function CapturePage() {
   const labelCls = "block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1";
 
   const handleFileUpload = async (file) => {
-    if (!["image/jpeg", "image/png"].includes(file.type)) {
-      setError("Format non supporté. Utilisez JPEG ou PNG.");
-      return;
-    }
     setError(null);
     setLoading(true);
     setScanned(true);
 
-    // Crée un aperçu de la photo capturée
-    const previewUrl = URL.createObjectURL(file);
+    const prepared = await prepareImage(file);
+    if (prepared.error) {
+      setError(prepared.error);
+      setLoading(false);
+      setScanned(false);
+      return;
+    }
+    const toSend = prepared.file;
+
+    // Aperçu de la photo capturée
+    const previewUrl = URL.createObjectURL(toSend);
     setPhotoPreview(previewUrl);
 
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", toSend);
 
-     const response = await apiFetch("/extract/scan", {
+      const response = await apiFetch("/extract/scan", {
         method: "POST",
         body: formData,
       });
@@ -41,7 +86,9 @@ export default function CapturePage() {
       const result = await response.json();
 
       if (!response.ok) {
-        setError(result.detail || "Erreur lors de l'extraction.");
+        setError(
+          typeof result.detail === "string" ? result.detail : "Erreur lors de l'extraction."
+        );
         setLoading(false);
         setScanned(false);
         setPhotoPreview(null);
@@ -52,7 +99,6 @@ export default function CapturePage() {
       sessionStorage.setItem("motifVisite", motifVisite);
       sessionStorage.setItem("photoPreview", previewUrl);
       router.push("/form");
-
     } catch (err) {
       setError("Impossible de contacter le serveur.");
       setLoading(false);
@@ -64,6 +110,7 @@ export default function CapturePage() {
   const handleInputChange = (e) => {
     const file = e.target.files[0];
     if (file) handleFileUpload(file);
+    e.target.value = ""; // permet de reprendre la même photo si besoin
   };
 
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
@@ -116,7 +163,7 @@ export default function CapturePage() {
           </div>
 
           <div className="p-5">
-            {/* Zone scan */}
+            {/* Zone scan : ouvre directement la caméra arrière sur tablette et téléphone */}
             <label
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -154,7 +201,7 @@ export default function CapturePage() {
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-700">
-                      Glissez une image ou cliquez
+                      Prendre une photo ou glisser une image
                     </p>
                     <p className="text-xs text-gray-400 mt-1">
                       JPEG ou PNG recommandé
@@ -165,6 +212,7 @@ export default function CapturePage() {
               <input
                 type="file"
                 accept="image/jpeg,image/png"
+                capture="environment"
                 onChange={handleInputChange}
                 className="hidden"
               />
@@ -186,6 +234,7 @@ export default function CapturePage() {
                 <RotateCcw className="w-4 h-4" />
                 Reprendre
               </button>
+              {/* Importer : ouvre la galerie (pas de capture) */}
               <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer">
                 <Upload className="w-4 h-4" />
                 Importer une image
