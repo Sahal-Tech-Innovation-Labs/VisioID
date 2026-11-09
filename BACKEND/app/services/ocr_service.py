@@ -4,12 +4,16 @@ import json
 import platform
 import shutil
 import base64
+import logging
 import cv2
 import pytesseract
 from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Logger d'uvicorn : déjà configuré, ses messages INFO apparaissent dans les logs Render
+_log = logging.getLogger("uvicorn.error")
 
 if platform.system() == "Windows":
     pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -36,11 +40,40 @@ _FACE_CASCADE = cv2.CascadeClassifier(
 )
 
 
+# Indices propres à la CNI burkinabè (tolèrent les erreurs courantes de l'OCR :
+# I/1/l, E/3, accents perdus). "BURKINABE" n'en fait pas partie : il figure
+# aussi sur le passeport (nationalité).
+_INDICES_CNI = [
+    r"[I1L|][D][E3É][N][T][I1L|][T]",          # IDENTITÉ / IDENTITY mal lu
+    r"NATIONALE",
+    r"N[ÉE3]\s*\(?\s*E?\s*\)?\s*LE\b",          # Né(e) le
+    r"EXPIRE\s*LE",
+    r"D[ÉE3]LIVR[ÉE3]+E?\s*LE",
+    r"(?<![A-Z0-9])B\d{6,}",                    # numéro ancienne CNI
+    r"(?<!\d)\d{17}(?!\d)",                     # numéro nouvelle CNI
+    r"\bI[D<]\s*<?\s*BFA",                      # ligne codée (MRZ) de la CNI
+]
+
+# Indices propres au passeport
+_INDICES_PASSEPORT = [
+    r"PASS[E3]?PORT",                           # PASSEPORT / PASSPORT
+    r"P\s*<\s*[A-Z<]{3}",                        # ligne codée (MRZ) du passeport : P<BFA
+]
+
+
 def detecter_type_doc(texte):
-    texte_upper = texte.upper()
-    if "PASSEPORT" in texte_upper or "PASSPORT" in texte_upper:
-        return "PASSEPORT"
-    elif "IDENTIT" in texte_upper or "IDENTITY" in texte_upper:
+    """
+    Décide entre CNI et passeport en comptant plusieurs indices,
+    pour ne pas dépendre d'un seul mot que l'OCR aurait mal lu.
+    """
+    t = texte.upper()
+    score_cni = sum(1 for p in _INDICES_CNI if re.search(p, t))
+    score_passeport = sum(1 for p in _INDICES_PASSEPORT if re.search(p, t))
+
+    if score_passeport:
+        # Un indice passeport l'emporte, sauf si la CNI est très nettement reconnue
+        return "CNI" if score_cni >= 3 else "PASSEPORT"
+    if score_cni:
         return "CNI"
     return "INCONNU"
 
@@ -201,7 +234,25 @@ def extraire_cni_regex(texte):
     }
 
 
-def extraire_avec_ia(texte_brut):
+def extraire_avec_ia(texte_brut, type_attendu="PASSEPORT"):
+    """
+    type_attendu = "PASSEPORT" : le document est reconnu comme passeport.
+    type_attendu = "INCONNU"   : type non reconnu, l'IA décide entre CNI et passeport.
+    """
+    if type_attendu == "PASSEPORT":
+        description = "d'un passeport burkinabè"
+        ligne_type = '"type_doc": "PASSEPORT"'
+        ligne_numero = ('"numero_doc": "IMPORTANT: numéro passeport = lettre A suivie de 7 chiffres '
+                        'ex: A5064595. Ne pas confondre avec le code pays BFA"')
+    else:
+        description = ("d'une pièce d'identité burkinabè dont le type n'a pas été reconnu "
+                       "(CNI ou passeport : à toi de déterminer lequel)")
+        ligne_type = ('"type_doc": "CNI pour une carte d\'identité (CNI), '
+                      'PASSEPORT pour un passeport"')
+        ligne_numero = ('"numero_doc": "passeport = lettre A suivie de 7 chiffres ex: A5064595 ; '
+                        'ancienne CNI = lettre B suivie de chiffres ; nouvelle CNI = 17 chiffres. '
+                        'Ne pas confondre avec le code pays BFA"')
+
     try:
         response = client.chat.completions.create(
             model=GROQ_MODEL,
@@ -209,16 +260,16 @@ def extraire_avec_ia(texte_brut):
                 {
                     "role": "user",
                     "content": f"""Tu es un expert en extraction de données de pièces d'identité burkinabè.
-Voici le texte brut extrait par OCR d'un passeport burkinabè :
+Voici le texte brut extrait par OCR {description} :
 
 {texte_brut}
 
 Extrais les informations et retourne UNIQUEMENT un JSON valide :
 {{
-  "type_doc": "PASSEPORT",
+  {ligne_type},
   "nom": "nom de famille uniquement",
   "prenom": "prénom(s) uniquement",
-  "numero_doc": "IMPORTANT: numéro passeport = lettre A suivie de 7 chiffres ex: A5064595. Ne pas confondre avec le code pays BFA",
+  {ligne_numero},
   "nationalite": "BURKINABE",
   "date_naissance": "format JJ/MM/AAAA",
   "lieu_naissance": "ville de naissance seulement sans BFA",
@@ -242,23 +293,55 @@ Si un champ est introuvable mets null. UNIQUEMENT le JSON brut, rien d'autre."""
                 texte = texte[4:]
             texte = texte.strip()
 
-        return json.loads(texte)
+        resultat = json.loads(texte)
 
     except json.JSONDecodeError as e:
         raise Exception(f"Erreur parsing réponse IA : {str(e)}")
     except Exception as e:
         raise Exception(f"Erreur Groq : {str(e)}")
 
+    if not isinstance(resultat, dict):
+        raise Exception("Erreur parsing réponse IA : la réponse n'est pas un objet JSON")
+
+    # On ne garde que deux valeurs possibles : CNI ou PASSEPORT
+    if type_attendu == "PASSEPORT":
+        resultat["type_doc"] = "PASSEPORT"
+    else:
+        type_ia = str(resultat.get("type_doc") or "").upper()
+        resultat["type_doc"] = "PASSEPORT" if "PASS" in type_ia else "CNI"
+    return resultat
+
+
+def _cni_regex_fiable(resultat):
+    """Vrai si les regex CNI ont trouvé un vrai numéro de CNI et au moins un autre champ clé."""
+    numero = resultat.get("numero_doc") or ""
+    numero_ok = bool(re.fullmatch(r"B\d{6,}|\d{17}", numero, re.IGNORECASE))
+    autre_champ = any(resultat.get(c) for c in ("nom", "prenom", "date_naissance"))
+    return numero_ok and autre_champ
+
 
 def extraire_hybride(texte_brut, image_path=None):
     type_doc = detecter_type_doc(texte_brut)
+    methode = None
 
     if type_doc == "CNI":
         resultat = extraire_cni_regex(texte_brut)
+        methode = "regex"
+    elif type_doc == "PASSEPORT":
+        resultat = extraire_avec_ia(texte_brut, type_attendu="PASSEPORT")
+        methode = "ia"
     else:
-        resultat = extraire_avec_ia(texte_brut)
+        # Type non reconnu : on tente d'abord les regex CNI, l'IA seulement si elles échouent
+        resultat = extraire_cni_regex(texte_brut)
+        methode = "regex (repli)"
+        if not _cni_regex_fiable(resultat):
+            resultat = extraire_avec_ia(texte_brut, type_attendu="INCONNU")
+            methode = "ia (type inconnu)"
+
+    type_final = resultat.get("type_doc") or type_doc
+    _log.info("Scan : type détecté=%s, type final=%s, méthode=%s", type_doc, type_final, methode)
 
     if image_path:
-        resultat["photo_profil"] = extraire_photo_profil(image_path, type_doc=type_doc)
+        resultat["photo_profil"] = extraire_photo_profil(image_path, type_doc=type_final)
 
     return resultat
