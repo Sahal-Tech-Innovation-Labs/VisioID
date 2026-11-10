@@ -211,10 +211,8 @@ Le backend utilise PostgreSQL.
 - `extractions` : documents extraits, type de pièce, dates, photo de profil, historique de sortie
 - `users` : comptes utilisateurs et rôles
 
-Un compte admin est créé automatiquement si aucun utilisateur n'existe :
 
-- login : `admin`
-- mot de passe : `admin123`
+
 
 ---
 
